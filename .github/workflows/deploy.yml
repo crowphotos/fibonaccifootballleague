@@ -20,10 +20,11 @@ jobs:
         with:
           server: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USERNAME }}
+          password: ${{ secrets.SFTP_PASSWORD }}
           # omit 'port' to use default 22, or set it if your host uses a custom port:
           # port: ${{ secrets.SFTP_PORT }}
-          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
-          ssh_passphrase: ${{ secrets.SSH_PASSPHRASE }} # ADD THIS if your key has a passphrase
+          #ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          #ssh_passphrase: ${{ secrets.SSH_PASSPHRASE }} # ADD THIS if your key has a passphrase
           sftp_only: true
           local_path: './'
           remote_path: ${{ secrets.SFTP_TARGET_DIR }}
