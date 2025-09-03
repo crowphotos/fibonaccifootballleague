@@ -2,39 +2,34 @@ name: Deploy static site to HostGator (SFTP)
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # --- Option A: SSH key auth (recommended) ---
-      # In your repo Settings → Secrets and variables → Actions, add:
-      #   SFTP_HOST, SFTP_USERNAME, SSH_PRIVATE_KEY, SFTP_TARGET_DIR, (optional) SFTP_PORT
+      # --- SSH key authentication (recommended) ---
+      # Required repo secrets:
+      #   SFTP_HOST, SFTP_USERNAME, SSH_PRIVATE_KEY, SFTP_TARGET_DIR
+      # Optional: SFTP_PORT (defaults to 22 if omitted)
       - name: Deploy via SFTP (SSH key)
-        if: ${{ secrets.SSH_PRIVATE_KEY != '' }}
         uses: wlixcc/SFTP-Deploy-Action@v1.2.6
         with:
           server: ${{ secrets.SFTP_HOST }}
           username: ${{ secrets.SFTP_USERNAME }}
-          port: ${{ secrets.SFTP_PORT || 22 }}
+          # omit 'port' to use default 22, or set it if your host uses a custom port:
+          # port: ${{ secrets.SFTP_PORT }}
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
           sftp_only: true
-          # Upload everything in the repo root except the usual junk
           local_path: './'
-          remote_path: ${{ secrets.SFTP_TARGET_DIR }}   # e.g. /home/cpaneluser/public_html
-          # Keep server in sync with repo: remove files on server that no longer exist locally
-          rsyncArgs: >
-            --delete
-            --exclude=.git/
-            --exclude=.github/
+          remote_path: ${{ secrets.SFTP_TARGET_DIR }}
+          # Use rsync-style excludes supported by this action:
+          rsyncArgs: >-
+            --exclude=.git
+            --exclude=.github
             --exclude=README.md
             --exclude=LICENSE
             --exclude=**/.DS_Store
-            --exclude=**/node_modules/
-
-
