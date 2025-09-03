@@ -1,3 +1,11 @@
+name: Debug SSH handshake
+  shell: bash
+  run: |
+    printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > id_rsa && chmod 600 id_rsa
+    ssh -vvv -o StrictHostKeyChecking=no -i id_rsa "${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}" "echo OK"
+
+
+
 name: Deploy static site to HostGator (SFTP)
 
 on:
