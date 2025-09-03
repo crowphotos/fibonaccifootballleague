@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Fibonacci Football League</title>
+<style>
+  :root { --bg:#0e1116; --card:#171b22; --muted:#8a94a6; --text:#e6eaf2; --acc:#5ab0ff; --ok:#48c774; --warn:#ffcc00; --bad:#ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:16px 20px; border-bottom:1px solid #222832; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; font-weight:700; letter-spacing:.3px; }
+  .chip { background:#1e2430; padding:6px 10px; border-radius:999px; font-size:12px; color:var(--muted); }
+  nav { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+  nav button { background:#1e2430; color:var(--text); border:1px solid #263143; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:600; }
+  nav button.active { border-color: var(--acc); box-shadow: 0 0 0 2px #1b2a3a inset; }
+  main { padding:16px; display:grid; gap:16px; }
+  .row { display:grid; gap:16px; grid-template-columns: repeat(12, 1fr); }
+  .col-12 { grid-column: span 12; }
+  .col-6 { grid-column: span 6; }
+  .col-4 { grid-column: span 4; }
+  .card { background:var(--card); border:1px solid #222832; border-radius:12px; padding:16px; }
+  h2 { font-size:16px; margin:0 0 12px; }
+  h3 { font-size:14px; margin:0 0 8px; color:var(--muted); font-weight:700; text-transform: uppercase; letter-spacing:.5px; }
+  label { font-size:12px; color:var(--muted); display:block; margin:10px 0 4px; }
+  input[type="text"], input[type="number"], select, textarea {
+    width:100%; background:#121620; color:var(--text); border:1px solid #263143; border-radius:8px; padding:8px 10px;
+  }
+  table { width:100%; border-collapse: collapse; }
+  th, td { text-align:left; padding:10px; border-bottom:1px solid #202736; font-size:14px; }
+  th { color:var(--muted); font-weight:700; }
+  tbody tr:hover { background:#141a24; }
+  .btn { background:#223149; border:1px solid #2e4b75; color:#d8ecff; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:700; }
+  .btn.secondary { background:#1b222e; border-color:#2a3447; color:var(--muted); }
+  .btn.danger { background:#2b1e24; border-color:#5b2c37; color:#ffd7de; }
+  .btn.ok { background:#193024; border-color:#2e6e45; color:#d9ffe8; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .muted { color:var(--muted); }
+  .pill { padding:2px 8px; border-radius:999px; border:1px solid #2b3547; background:#121826; font-size:12px; color:#a9b5c9; }
+  .flex { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .tight td { padding:6px 8px; }
+  @media (max-width: 980px){ .col-6, .col-4 { grid-column: span 12; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Fibonacci Football League</h1>
+  <span class="chip">10 teams</span>
+  <span class="chip">18 weeks</span>
+  <span class="chip">ESPN League: <strong>708357460</strong></span>
+  <nav>
+    <button id="tab-standings" class="active">Standings</button>
+    <button id="tab-teams">Teams</button>
+    <button id="tab-schedule">Schedule</button>
+    <button id="tab-scores">Scores</button>
+    <button id="tab-settings">Data</button>
+  </nav>
+</header>
+
+<main id="view-standings">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <h2>Table</h2>
+        <div class="muted" id="tableNote"></div>
+        <table id="standingsTbl">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Team</th>
+              <th class="muted">ESPN ID</th>
+              <th>FFL Pts</th>
+              <th class="muted">Raw Pts (sum)</th>
+              <th class="muted">Played</th>
+              <th class="muted">Last Week</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="flex" style="margin-top:10px">
+          <button class="btn secondary" id="recalcBtn">Recalculate</button>
+          <span class="muted">FFL points per pair each week: 8, 5, 3, 2, 1</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<main id="view-teams" style="display:none;">
+  <div class="row">
+    <div class="col-6">
+      <div class="card">
+        <h2>Teams (10)</h2>
+        <table class="tight" id="teamsTbl">
+          <thead><tr><th>#</th><th>Name</th><th class="muted">ESPN Team ID (optional)</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="flex" style="margin-top:10px;">
+          <button class="btn" id="addTeamBtn">Add Team</button>
+          <button class="btn ok" id="saveTeamsBtn">Save</button>
+          <button class="btn danger" id="resetTeamsBtn">Reset to 10 slots</button>
+        </div>
+        <p class="muted" style="margin-top:8px;">
+          Tip: If you maintain team names in ESPN, you can paste them here; the ESPN IDs are just for your reference.
+        </p>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="card">
+        <h2>Team Order & IDs</h2>
+        <p class="muted">The order here determines how round-robin schedules are generated. Drag rows to reorder (desktop), or edit indices then Save.</p>
+        <div id="teamDebug" class="muted"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<main id="view-schedule" style="display:none;">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <h2>Schedule (18 weeks, 5 pairings per week)</h2>
+        <div class="flex">
+          <button class="btn" id="genScheduleBtn">Generate Double Round-Robin</button>
+          <button class="btn secondary" id="clearScheduleBtn">Clear All</button>
+          <span class="muted">You can still edit any week manually.</span>
+        </div>
+        <div id="scheduleContainer" style="margin-top:14px;"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<main id="view-scores" style="display:none;">
+  <div class="row">
+    <div class="col-4">
+      <div class="card">
+        <h2>Select Week</h2>
+        <label for="weekSelect">Week (1–18)</label>
+        <select id="weekSelect"></select>
+        <div class="muted" style="margin-top:8px">Enter each team’s raw score for this week (as in ESPN “Points For” that week).</div>
+      </div>
+    </div>
+    <div class="col-8">
+      <div class="card">
+        <h2>Week Scores</h2>
+        <table id="scoresTbl" class="tight">
+          <thead><tr><th>#</th><th>Team</th><th>Score</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="flex" style="margin-top:10px;">
+          <button class="btn ok" id="saveScoresBtn">Save Week Scores</button>
+          <button class="btn secondary" id="calcWeekBtn">Calculate This Week’s FFL Points</button>
+          <span class="muted">Pair rankings: highest combined score → 8 pts each, then 5, 3, 2, 1</span>
+        </div>
+        <div id="weekResult" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<main id="view-settings" style="display:none;">
+  <div class="row">
+    <div class="col-6">
+      <div class="card">
+        <h2>Export / Import</h2>
+        <div class="grid-2">
+          <button class="btn" id="exportBtn">Export JSON</button>
+          <button class="btn" id="importBtn">Import JSON</button>
+        </div>
+        <label for="dataBox">Data</label>
+        <textarea id="dataBox" rows="14" placeholder="Click Export to copy, or paste here then Import."></textarea>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="card">
+        <h2>Admin</h2>
+        <div class="grid-2">
+          <button class="btn danger" id="wipeBtn">Full Reset</button>
+          <button class="btn secondary" id="reseedBtn">Seed Demo Data</button>
+        </div>
+        <p class="muted">All data is stored locally in your browser’s localStorage (key: <code>fflData</code>).</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+/**
+ * Fibonacci Football League – single-file app
+ * - 10 teams, 18 weeks
+ * - Each week forms 5 pairings.
+ * - For each pairing, combine raw scores, rank pairs: 8,5,3,2,1 points to each team in the pair.
+ * - Tie handling: if multiple pairs tie at a rank, they split the total points for the occupied slots evenly (average-of-places method).
+ *   Example: tie for top between 2 pairs → they share places 1 & 2: (8 + 5) / 2 = 6.5 pts to each pair (each team gets 6.5).
+ */
+
+const DEFAULT_WEEKS = 18;
+const DEFAULT_TEAMS = 10;
+const WEEK_POINTS = [8,5,3,2,1];
+
+const el = id => document.getElementById(id);
+const byQS = sel => document.querySelector(sel);
+
+const store = {
+  key: 'fflData',
+  load() {
+    const raw = localStorage.getItem(this.key);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return null; }
+  },
+  save(data) { localStorage.setItem(this.key, JSON.stringify(data)); },
+  wipe() { localStorage.removeItem(this.key); }
+};
+
+const app = {
+  data: {
+    leagueName: "Fancy Football",
+    leagueId: "708357460",
+    teams: [], // [{id:0..9, name:'', espnId:''}]
+    weeks: DEFAULT_WEEKS,
+    schedule: [], // [ weekIndex ] -> [ {a: teamId, b: teamId}, ... 5 pairs ]
+    scores: {},   // scores[weekIndex][teamId] = raw number
+    fflPoints: {},// fflPoints[weekIndex][teamId] = weekly awarded points
+  },
+  init() {
+    // Load or seed
+    const loaded = store.load();
+    if (loaded) this.data = loaded;
+    if (!this.data.teams || this.data.teams.length === 0) {
+      this.data.teams = Array.from({length: DEFAULT_TEAMS}, (_,i)=>({ id:i, name:`Team ${i+1}`, espnId:'' }));
+    }
+    if (!this.data.schedule || this.data.schedule.length === 0) {
+      this.data.schedule = Array.from({length: DEFAULT_WEEKS}, ()=>[]);
+    }
+    this.mountNav();
+    this.renderAll();
+  },
+  persist() { store.save(this.data); },
+
+  // ---------- NAV ----------
+  mountNav() {
+    const tabs = [
+      ['tab-standings','view-standings'],
+      ['tab-teams','view-teams'],
+      ['tab-schedule','view-schedule'],
+      ['tab-scores','view-scores'],
+      ['tab-settings','view-settings'],
+    ];
+    tabs.forEach(([btnId, viewId])=>{
+      el(btnId).onclick = () => {
+        // set active
+        tabs.forEach(([b,v])=>{
+          el(b).classList.toggle('active', b===btnId);
+          el(v).style.display = (v===viewId) ? '' : 'none';
+        });
+        if (viewId==='view-standings') this.renderStandings();
+        if (viewId==='view-teams') this.renderTeams();
+        if (viewId==='view-schedule') this.renderSchedule();
+        if (viewId==='view-scores') { this.renderWeekSelect(); this.renderScoresTable(); }
+      };
+    });
+  },
+
+  // ---------- STANDINGS ----------
+  computeStandings() {
+    const totals = new Map(); // teamId -> {seasonPts, rawSum, played, lastWeek}
+    this.data.teams.forEach(t=>totals.set(t.id, {seasonPts:0, rawSum:0, played:0, lastWeek:null}));
+    for (let w=0; w<this.data.weeks; w++) {
+      const wkPts = this.data.fflPoints[w];
+      const wkScores = this.data.scores[w];
+      if (!wkPts || !wkScores) continue;
+      // Apply weekly awards & raw sums
+      Object.entries(wkPts).forEach(([tid, pts])=>{
+        const t = totals.get(+tid);
+        t.seasonPts += pts;
+        t.played += 1;
+        t.lastWeek = pts;
+      });
+      Object.entries(wkScores).forEach(([tid, raw])=>{
+        const t = totals.get(+tid);
+        t.rawSum += Number(raw)||0;
+      });
+    }
+    // return sorted
+    const rows = this.data.teams.map(t=>{
+      const tstats = totals.get(t.id);
+      return {
+        id: t.id, name: t.name, espnId: t.espnId || '',
+        seasonPts: +(tstats?.seasonPts||0),
+        rawSum: +(tstats?.rawSum||0),
+        played: tstats?.played||0,
+        lastWeek: tstats?.lastWeek
+      };
+    });
+    rows.sort((a,b)=>{
+      if (b.seasonPts !== a.seasonPts) return b.seasonPts - a.seasonPts;
+      if (b.rawSum !== a.rawSum) return b.rawSum - a.rawSum;
+      return a.name.localeCompare(b.name);
+    });
+    return rows;
+  },
+  renderStandings() {
+    const tbody = el('standingsTbl').querySelector('tbody');
+    tbody.innerHTML = '';
+    const rows = this.computeStandings();
+    rows.forEach((r, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${idx+1}</td>
+        <td>${escapeHtml(r.name)}</td>
+        <td class="muted">${r.espnId? `<span class="pill">${escapeHtml(r.espnId)}</span>`:''}</td>
+        <td><strong>${fmtNum(r.seasonPts)}</strong></td>
+        <td class="muted">${fmtNum(r.rawSum)}</td>
+        <td class="muted">${r.played}</td>
+        <td class="muted">${r.lastWeek==null?'-':fmtNum(r.lastWeek)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    const playedWeeks = Object.values(this.data.fflPoints).filter(Boolean).length;
+    el('tableNote').textContent = `Calculated through ${playedWeeks||0} week${playedWeeks===1?'':'s'}.`;
+  },
+
+  // ---------- TEAMS ----------
+  renderTeams() {
+    const tbody = el('teamsTbl').querySelector('tbody');
+    tbody.innerHTML = '';
+    this.data.teams.forEach((t,i)=>{
+      const tr = document.createElement('tr');
+      tr.draggable = true;
+      tr.ondragstart = (e)=>{ e.dataTransfer.setData('text/plain', i); };
+      tr.ondragover = e=>e.preventDefault();
+      tr.ondrop = (e)=>{
+        e.preventDefault();
+        const from = +e.dataTransfer.getData('text/plain');
+        const to = i;
+        if (from===to) return;
+        const arr = this.data.teams;
+        const [moved] = arr.splice(from,1);
+        arr.splice(to,0,moved);
+        this.data.teams = arr.map((t,idx)=>({...t, id: idx}));
+        this.persist(); this.renderTeams(); this.updateIdsInScheduleAfterReorder();
+      };
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td><input type="text" value="${escapeAttr(t.name)}" data-field="name" data-id="${t.id}" /></td>
+        <td><input type="text" value="${escapeAttr(t.espnId||'')}" data-field="espnId" data-id="${t.id}" /></td>
+        <td><button class="btn secondary" data-del="${t.id}">Delete</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Buttons
+    el('addTeamBtn').onclick = ()=>{
+      if (this.data.teams.length >= 10) { alert('League is fixed at 10 teams.'); return; }
+      const id = this.data.teams.length;
+      this.data.teams.push({ id, name:`Team ${id+1}`, espnId:'' });
+      this.persist(); this.renderTeams();
+    };
+    el('resetTeamsBtn').onclick = ()=>{
+      if (!confirm('Reset team list to 10 empty slots?')) return;
+      this.data.teams = Array.from({length: DEFAULT_TEAMS}, (_,i)=>({ id:i, name:`Team ${i+1}`, espnId:'' }));
+      this.reindexSchedule(); this.persist(); this.renderTeams();
+    };
+    el('saveTeamsBtn').onclick = ()=>{
+      // read edits
+      const inputs = tbody.querySelectorAll('input');
+      inputs.forEach(inp=>{
+        const id = +inp.getAttribute('data-id');
+        const field = inp.getAttribute('data-field');
+        const t = this.data.teams.find(x=>x.id===id);
+        if (t) t[field] = inp.value.trim();
+      });
+      // Normalize ids to order
+      this.data.teams = this.data.teams.map((t,idx)=>({...t, id: idx}));
+      this.reindexSchedule();
+      this.persist();
+      alert('Teams saved.');
+    };
+    // delete handlers
+    tbody.querySelectorAll('button[data-del]').forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = +btn.getAttribute('data-del');
+        if (!confirm('Delete this team? (This will remove it from schedule & scores too)')) return;
+        this.deleteTeam(id);
+      };
+    });
+
+    // Debug info
+    el('teamDebug').textContent = JSON.stringify(this.data.teams.map(t=>({id:t.id, name:t.name, espn:t.espnId||''})), null, 2);
+  },
+  deleteTeam(id) {
+    // fixed 10-team league; do not allow actual removal in this version
+    alert('This league is fixed at 10 teams. You can rename teams instead.');
+  },
+  reindexSchedule() {
+    // After reordering team array, pair references remain by team index (id == array index).
+    // If you permute team order, you likely want to regenerate the schedule.
+  },
+  updateIdsInScheduleAfterReorder() {
+    // As IDs were normalized to index order, schedule still refers to ids by index—no action needed.
+    this.persist();
+  },
+
+  // ---------- SCHEDULE ----------
+  renderSchedule() {
+    const host = el('scheduleContainer');
+    host.innerHTML = '';
+    for (let w=0; w<DEFAULT_WEEKS; w++) {
+      host.appendChild(this.weekEditor(w));
+    }
+    el('genScheduleBtn').onclick = ()=> {
+      const sched = generateDoubleRoundRobin(this.data.teams.map(t=>t.id));
+      // sched has 18 rounds of 5 pairs each (a,b)
+      this.data.schedule = sched;
+      this.persist();
+      this.renderSchedule();
+      alert('Double round-robin schedule generated.');
+    };
+    el('clearScheduleBtn').onclick = ()=> {
+      if (!confirm('Clear all pairings for all weeks?')) return;
+      this.data.schedule = Array.from({length: DEFAULT_WEEKS}, ()=>[]);
+      this.persist(); this.renderSchedule();
+    };
+  },
+  weekEditor(weekIdx) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const pairs = this.data.schedule[weekIdx] || [];
+    card.innerHTML = `<h3>Week ${weekIdx+1}</h3>`;
+    const tbl = document.createElement('table');
+    tbl.className = 'tight';
+    tbl.innerHTML = `<thead><tr><th>#</th><th>Team A</th><th>Team B</th><th></th></tr></thead>`;
+    const tb = document.createElement('tbody');
+
+    for (let i=0; i<5; i++) {
+      const pr = pairs[i] || {a:'', b:''};
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${teamSelect(`wk${weekIdx}-a-${i}`, pr.a)}</td>
+        <td>${teamSelect(`wk${weekIdx}-b-${i}`, pr.b)}</td>
+        <td><button class="btn secondary" data-rem="${i}">Clear</button></td>
+      `;
+      tb.appendChild(tr);
+    }
+    tbl.appendChild(tb);
+    const bar = document.createElement('div');
+    bar.className = 'flex';
+    bar.style.marginTop = '8px';
+    bar.innerHTML = `<button class="btn ok">Save Week ${weekIdx+1}</button>`;
+    bar.querySelector('button').onclick = ()=>{
+      const nextPairs = [];
+      for (let i=0; i<5; i++) {
+        const a = Number(el(`wk${weekIdx}-a-${i}`).value);
+        const b = Number(el(`wk${weekIdx}-b-${i}`).value);
+        if (!isFinite(a) || !isFinite(b)) continue;
+        if (a===b) { alert('Pair teams must be different.'); return; }
+        nextPairs.push({a,b});
+      }
+      if (nextPairs.length !== 5) {
+        if (!confirm(`You entered ${nextPairs.length} pair(s) for Week ${weekIdx+1}. Save anyway?`)) return;
+      }
+      this.data.schedule[weekIdx] = nextPairs;
+      this.persist();
+      alert(`Week ${weekIdx+1} saved.`);
+    };
+    // Clear buttons
+    setTimeout(()=>{
+      tb.querySelectorAll('button[data-rem]').forEach(btn=>{
+        btn.onclick=()=>{
+          const idx = +btn.getAttribute('data-rem');
+          const selA = el(`wk${weekIdx}-a-${idx}`);
+          const selB = el(`wk${weekIdx}-b-${idx}`);
+          selA.value = ''; selB.value='';
+        };
+      });
+    });
+
+    card.appendChild(tbl);
+    card.appendChild(bar);
+    return card;
+  },
+
+  // ---------- SCORES ----------
+  renderWeekSelect() {
+    const s = el('weekSelect');
+    s.innerHTML = '';
+    for (let w=1; w<=DEFAULT_WEEKS; w++) {
+      const opt = document.createElement('option');
+      opt.value = w-1;
+      opt.textContent = `Week ${w}`;
+      s.appendChild(opt);
+    }
+    s.onchange = ()=> this.renderScoresTable();
+  },
+  renderScoresTable() {
+    const w = Number(el('weekSelect').value||0);
+    const tb = el('scoresTbl').querySelector('tbody');
+    tb.innerHTML = '';
+    const wkScores = this.data.scores[w] || {};
+    this.data.teams.forEach((t,i)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i+1}</td>
+        <td>${escapeHtml(t.name)}</td>
+        <td><input type="number" step="0.01" value="${escapeAttr(wkScores[t.id]??'')}" id="score-${w}-${t.id}" /></td>
+      `;
+      tb.appendChild(tr);
+    });
+    el('saveScoresBtn').onclick = ()=>{
+      const out = {};
+      this.data.teams.forEach(t=>{
+        const v = el(`score-${w}-${t.id}`).value;
+        if (v!=='' && v!=null) out[t.id] = Number(v);
+      });
+      this.data.scores[w] = out;
+      this.persist();
+      alert(`Saved scores for Week ${w+1}.`);
+    };
+    el('calcWeekBtn').onclick = ()=> {
+      const res = this.calculateWeek(w);
+      el('weekResult').innerHTML = res.html;
+      this.persist();
+      this.renderStandings();
+    };
+  },
+  calculateWeek(weekIdx) {
+    const pairs = this.data.schedule[weekIdx];
+    const wkScores = this.data.scores[weekIdx];
+    if (!pairs || pairs.length===0) return {html:'<p class="muted">No pairings set for this week.</p>'};
+    if (!wkScores) return {html:'<p class="muted">No scores entered for this week.</p>'};
+
+    // Build pair sums
+    const pairSums = pairs.map((p, i)=>{
+      const a = Number(wkScores[p.a] ?? NaN);
+      const b = Number(wkScores[p.b] ?? NaN);
+      return { idx:i, a:p.a, b:p.b, sum: (isFinite(a)?a:0) + (isFinite(b)?b:0), haveBoth: isFinite(a) && isFinite(b), aScore:a, bScore:b };
+    });
+
+    // Rank by sum desc; assign points with tie-split method across occupied ranks
+    const ranked = [...pairSums].sort((x,y)=> y.sum - x.sum);
+    const placePoints = WEEK_POINTS.slice(0, pairSums.length); // usually 5
+    const awardsByPairIdx = new Map();
+
+    let i=0, place=0;
+    while (i < ranked.length) {
+      // find tie block
+      let j=i+1;
+      while (j < ranked.length && ranked[j].sum === ranked[i].sum) j++;
+      const block = ranked.slice(i,j);
+      // points for places [place .. place+block.length-1]
+      const slice = placePoints.slice(place, place + block.length);
+      const avgPts = slice.reduce((a,b)=>a+b,0) / (slice.length||1);
+      block.forEach(row=> awardsByPairIdx.set(row.idx, avgPts));
+      place += block.length;
+      i = j;
+    }
+
+    // Fill team awards
+    if (!this.data.fflPoints[weekIdx]) this.data.fflPoints[weekIdx] = {};
+    const wkFfl = this.data.fflPoints[weekIdx];
+    pairs.forEach((p, i)=>{
+      const pts = +(awardsByPairIdx.get(i) ?? 0);
+      wkFfl[p.a] = (isFinite(pts)?pts:0);
+      wkFfl[p.b] = (isFinite(pts)?pts:0);
+    });
+
+    // Render summary
+    const lines = ranked.map((row, rankIdx)=>{
+      const pts = awardsByPairIdx.get(row.idx);
+      const lab = `#${rankIdx+1} • ${escapeHtml(teamName(row.a))} + ${escapeHtml(teamName(row.b))}`;
+      const sums = `= ${fmtNum(row.aScore)} + ${fmtNum(row.bScore)} = <strong>${fmtNum(row.sum)}</strong>`;
+      const award = `→ <span class="pill">FFL ${fmtNum(pts)} each</span>`;
+      return `<li>${lab} ${sums} ${award}</li>`;
+    }).join('');
+    return { html: `<ul>${lines}</ul>` };
+  },
+
+  // ---------- DATA ----------
+  mountData() {
+    // Wired in renderAll
+  },
+  renderAll() {
+    this.renderStandings();
+    this.renderTeams();
+    this.renderSchedule();
+    this.renderWeekSelect();
+    this.renderScoresTable();
+
+    // data actions
+    el('recalcBtn').onclick = ()=>{ this.renderStandings(); };
+    el('exportBtn').onclick = ()=>{
+      el('dataBox').value = JSON.stringify(this.data, null, 2);
+      el('dataBox').focus();
+      el('dataBox').select();
+    };
+    el('importBtn').onclick = ()=>{
+      try {
+        const obj = JSON.parse(el('dataBox').value);
+        this.data = obj;
+        this.persist();
+        this.renderAll();
+        alert('Imported data.');
+      } catch(e) {
+        alert('Invalid JSON.');
+      }
+    };
+    el('wipeBtn').onclick = ()=>{
+      if (!confirm('This will erase ALL local data for this app. Proceed?')) return;
+      store.wipe(); location.reload();
+    };
+    el('reseedBtn').onclick = ()=>{
+      if (!confirm('Seed with demo teams, schedule and some random scores?')) return;
+      seedDemo(this.data);
+      this.persist();
+      this.renderAll();
+    };
+  },
+};
+
+// ---------- Helpers ----------
+function teamSelect(id, value) {
+  const opts = ['<option value="">— pick —</option>']
+    .concat(app.data.teams.map(t=>`<option value="${t.id}" ${t.id===value?'selected':''}>${escapeHtml(t.name)}</option>`));
+  return `<select id="${id}">${opts.join('')}</select>`;
+}
+function teamName(id) {
+  const t = app.data.teams.find(x=>x.id===id);
+  return t ? t.name : `?${id}`;
+}
+function fmtNum(x){ return (x==null || Number.isNaN(x)) ? '0' : (Number.isInteger(x)? x : Number(x).toFixed(2)); }
+function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function escapeAttr(s){ return escapeHtml(s).replace(/"/g,'&quot;'); }
+
+// Double round-robin (10 teams → 9 rounds; doubled → 18)
+// Circle method; teams are 0..9; each round yields 5 pairs.
+function generateDoubleRoundRobin(teamIds) {
+  if (teamIds.length !== 10) { alert('This generator expects exactly 10 teams.'); return Array.from({length:DEFAULT_WEEKS},()=>[]); }
+  const rounds = roundRobin(teamIds);
+  const twice = rounds.concat(rounds.map(r=>r.map(p=>({a:p.b, b:p.a})))); // swap home/away for second half
+  return twice.slice(0, DEFAULT_WEEKS);
+}
+function roundRobin(teams) {
+  // standard circle method for even n
+  const n = teams.length;
+  const arr = teams.slice();
+  const fixed = arr[0];
+  let rot = arr.slice(1);
+  const rounds = [];
+  for (let r=0; r<n-1; r++){
+    const left = [fixed].concat(rot.slice(0,(n/2)-1));
+    const right = rot.slice((n/2)-1).reverse();
+    const pairs = [];
+    for (let i=0; i<n/2; i++){
+      const a = left[i];
+      const b = right[i];
+      pairs.push({a,b});
+    }
+    rounds.push(pairs);
+    // rotate
+    rot = [rot[rot.length-1]].concat(rot.slice(0,rot.length-1));
+  }
+  return rounds;
+}
+
+// Demo seed
+function seedDemo(data) {
+  data.teams = [
+    'Alpha','Bravo','Charlie','Delta','Echo','Foxtrot','Golf','Hotel','India','Juliet'
+  ].map((name,i)=>({id:i, name, espnId:String(i+1)}));
+  data.schedule = generateDoubleRoundRobin(data.teams.map(t=>t.id));
+  data.scores = {};
+  data.fflPoints = {};
+  // random-ish first 3 weeks
+  for (let w=0; w<3; w++){
+    data.scores[w] = {};
+    data.teams.forEach(t=>{
+      data.scores[w][t.id] = +(80 + Math.random()*100).toFixed(2);
+    });
+    // calculate
+    app.calculateWeek(w);
+  }
+}
+
+// ---------- Boot ----------
+app.init();
+</script>
+</body>
+</html>
+
