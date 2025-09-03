@@ -8,13 +8,6 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Debug SSH handshake
-        shell: bash
-        run: |
-          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > id_rsa && chmod 600 id_rsa
-          ssh -vvv -o StrictHostKeyChecking=no -i id_rsa "${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}" "echo OK"
-
-    
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -30,6 +23,7 @@ jobs:
           # omit 'port' to use default 22, or set it if your host uses a custom port:
           # port: ${{ secrets.SFTP_PORT }}
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh_passphrase: ${{ secrets.SSH_PASSPHRASE }} # ADD THIS if your key has a passphrase
           sftp_only: true
           local_path: './'
           remote_path: ${{ secrets.SFTP_TARGET_DIR }}
