@@ -3,31 +3,29 @@ import { sql } from '@vercel/postgres';
 import { requireAdmin } from './auth.js';
 
 function norm(s) {
-  return String(s || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function buildHeaders(cookies) {
+  const h = {
+    'Accept': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    'Referer': 'https://fantasy.espn.com/'
+  };
+  if (cookies) h['Cookie'] = cookies;
+  return h;
 }
 
 async function fetchEspnJson(url, cookies) {
-  const headers = { 'Accept': 'application/json' };
-  if (cookies) headers['Cookie'] = cookies;
-
-  const r = await fetch(url, { headers });
+  const r = await fetch(url, { headers: buildHeaders(cookies) });
   const ct = r.headers.get('content-type') || '';
-
-  // If it's not JSON, return a structured error with a snippet
   if (!ct.includes('application/json')) {
     const body = await r.text().catch(() => '');
     return { ok: false, status: r.status, error: 'ESPN did not return JSON', contentType: ct, bodySnippet: body.slice(0, 400) };
   }
-
   try {
     const data = await r.json();
-    if (!r.ok) {
-      return { ok: false, status: r.status, error: 'ESPN returned non-200 with JSON', data };
-    }
+    if (!r.ok) return { ok: false, status: r.status, error: 'ESPN returned non-200 with JSON', data };
     return { ok: true, status: r.status, data };
   } catch (e) {
     const body = await r.text().catch(() => '');
@@ -48,9 +46,8 @@ export default async function handler(req, res) {
     const cookies = (process.env.ESPN_SWID && process.env.ESPN_S2) ? `SWID=${process.env.ESPN_SWID}; ESPN_S2=${process.env.ESPN_S2}` : '';
 
     const out = await fetchEspnJson(espnUrl, cookies);
-    if (!out.ok) {
-      return res.status(out.status || 502).json({ source: 'espn', ...out });
-    }
+    if (!out.ok) return res.status(out.status || 502).json({ source: 'espn', ...out });
+
     const espnTeams = (out.data?.teams || []).map(t => ({
       espnTeamId: t.id,
       name: (t.location && t.nickname) ? `${t.location} ${t.nickname}` : (t.name || `Team ${t.id}`)
@@ -78,14 +75,7 @@ export default async function handler(req, res) {
       await sql`UPDATE teams SET espn_id = ${u.to} WHERE id = ${u.id}`;
     }
 
-    res.status(200).json({
-      season,
-      leagueId,
-      updated: updates.length,
-      updates,
-      unmapped: misses,
-      espnTeams
-    });
+    res.status(200).json({ season, leagueId, updated: updates.length, updates, unmapped: misses, espnTeams });
   } catch (err) {
     console.error('map-teams error:', err);
     res.status(500).json({ error: String(err?.message || err) });
