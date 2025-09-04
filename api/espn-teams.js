@@ -1,9 +1,16 @@
 // api/espn-teams.js
-async function fetchEspnJson(url, cookies) {
-  const headers = { 'Accept': 'application/json' };
-  if (cookies) headers['Cookie'] = cookies;
+function buildHeaders(cookies) {
+  const h = {
+    'Accept': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    'Referer': 'https://fantasy.espn.com/'
+  };
+  if (cookies) h['Cookie'] = cookies;
+  return h;
+}
 
-  const r = await fetch(url, { headers });
+async function fetchEspnJson(url, cookies) {
+  const r = await fetch(url, { headers: buildHeaders(cookies) });
   const ct = r.headers.get('content-type') || '';
   if (!ct.includes('application/json')) {
     const body = await r.text().catch(() => '');
@@ -11,9 +18,7 @@ async function fetchEspnJson(url, cookies) {
   }
   try {
     const data = await r.json();
-    if (!r.ok) {
-      return { ok: false, status: r.status, error: 'ESPN returned non-200 with JSON', data };
-    }
+    if (!r.ok) return { ok: false, status: r.status, error: 'ESPN returned non-200 with JSON', data };
     return { ok: true, status: r.status, data };
   } catch (e) {
     const body = await r.text().catch(() => '');
@@ -31,9 +36,7 @@ export default async function handler(req, res) {
     const cookies = (process.env.ESPN_SWID && process.env.ESPN_S2) ? `SWID=${process.env.ESPN_SWID}; ESPN_S2=${process.env.ESPN_S2}` : '';
 
     const out = await fetchEspnJson(espnUrl, cookies);
-    if (!out.ok) {
-      return res.status(out.status || 502).json({ source: 'espn', ...out });
-    }
+    if (!out.ok) return res.status(out.status || 502).json({ source: 'espn', ...out });
 
     const teams = (out.data?.teams || []).map(t => ({
       espnTeamId: t.id,
