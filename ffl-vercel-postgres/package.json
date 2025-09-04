@@ -2,6 +2,7 @@
   "name": "ffl-fibonacci-vercel",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Fibonacci Football League — Vercel serverless API + Vercel Postgres",
   "scripts": {
     "dev": "vercel dev",
