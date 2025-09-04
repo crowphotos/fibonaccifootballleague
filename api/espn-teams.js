@@ -1,4 +1,26 @@
 // api/espn-teams.js
+async function fetchEspnJson(url, cookies) {
+  const headers = { 'Accept': 'application/json' };
+  if (cookies) headers['Cookie'] = cookies;
+
+  const r = await fetch(url, { headers });
+  const ct = r.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) {
+    const body = await r.text().catch(() => '');
+    return { ok: false, status: r.status, error: 'ESPN did not return JSON', contentType: ct, bodySnippet: body.slice(0, 400) };
+  }
+  try {
+    const data = await r.json();
+    if (!r.ok) {
+      return { ok: false, status: r.status, error: 'ESPN returned non-200 with JSON', data };
+    }
+    return { ok: true, status: r.status, data };
+  } catch (e) {
+    const body = await r.text().catch(() => '');
+    return { ok: false, status: r.status, error: String(e?.message || e), contentType: ct, bodySnippet: body.slice(0, 400) };
+  }
+}
+
 export default async function handler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -6,20 +28,14 @@ export default async function handler(req, res) {
     const leagueId = 708357460;
 
     const espnUrl = `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mTeam`;
+    const cookies = (process.env.ESPN_SWID && process.env.ESPN_S2) ? `SWID=${process.env.ESPN_SWID}; ESPN_S2=${process.env.ESPN_S2}` : '';
 
-    const headers = {};
-    if (process.env.ESPN_SWID && process.env.ESPN_S2) {
-      headers['Cookie'] = `SWID=${process.env.ESPN_SWID}; ESPN_S2=${process.env.ESPN_S2}`;
+    const out = await fetchEspnJson(espnUrl, cookies);
+    if (!out.ok) {
+      return res.status(out.status || 502).json({ source: 'espn', ...out });
     }
 
-    const r = await fetch(espnUrl, { headers });
-    if (!r.ok) {
-      const txt = await r.text().catch(() => '');
-      return res.status(r.status).json({ error: 'Failed to fetch ESPN teams', status: r.status, body: txt.slice(0, 300) });
-    }
-    const data = await r.json();
-
-    const teams = (data?.teams || []).map(t => ({
+    const teams = (out.data?.teams || []).map(t => ({
       espnTeamId: t.id,
       name: (t.location && t.nickname) ? `${t.location} ${t.nickname}` : (t.name || `Team ${t.id}`),
       abbrev: t.abbrev || ''
