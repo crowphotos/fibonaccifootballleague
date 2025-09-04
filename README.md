@@ -2,6 +2,8 @@
 
 Serverless API (in `/api`) backed by **Vercel Postgres** and a static **public** site for standings plus an **admin** page.
 
+Do we put files at the root of the repo?
+
 ## Local (optional)
 
 ```bash
