@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Fibonacci Football League — Vercel serverless API + Vercel Postgres",
+  "description": "Fibonacci Football League — Vercel serverless API + Vercel Neon Postgres",
   "scripts": {
     "dev": "vercel dev",
     "build": "echo 'Vercel builds serverless functions automatically'",
