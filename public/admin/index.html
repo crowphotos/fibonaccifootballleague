@@ -11,6 +11,7 @@
   <h1>FFL Admin</h1>
 </header>
 <main>
+  <!-- Login -->
   <div class="card">
     <h2>Login</h2>
     <div class="flex">
@@ -21,6 +22,7 @@
     </div>
   </div>
 
+  <!-- Teams -->
   <div class="card">
     <h2>Teams</h2>
     <div class="flex">
@@ -34,6 +36,7 @@
     </table>
   </div>
 
+  <!-- Schedule -->
   <div class="card">
     <h2>Schedule</h2>
     <div class="flex">
@@ -50,6 +53,7 @@
     </table>
   </div>
 
+  <!-- Scores -->
   <div class="card">
     <h2>Scores & Calculate</h2>
     <div class="flex">
@@ -57,7 +61,6 @@
       <button class="btn secondary" id="loadScoresBtn">Load Scores</button>
       <button class="btn" id="saveScoresBtn">Save Scores</button>
       <button class="btn" id="calcBtn">Calculate Awards for Week</button>
-      <!-- ESPN Fetch -->
       <button class="btn" id="fetchEspnBtn" title="Fetch weekly totals from ESPN and fill the score inputs">Fetch from ESPN</button>
     </div>
     <table>
@@ -65,6 +68,23 @@
       <tbody id="scoresBody"></tbody>
     </table>
     <div id="calcResult" class="muted"></div>
+  </div>
+
+  <!-- ESPN Mapping -->
+  <div class="card">
+    <h2>ESPN Mapping</h2>
+    <div class="flex" style="gap:12px">
+      <select id="mapLocalTeam"></select>
+      <input id="espnSearch" placeholder="Search ESPN teams..." />
+      <button class="btn" id="refreshEspn">Refresh ESPN List</button>
+      <button class="btn" id="autoMapBtn" title="Try to match by name and write espn_id">Auto-map by name</button>
+      <span class="muted">Tip: Select a local team, then click an ESPN team below to assign its ID.</span>
+    </div>
+    <table>
+      <thead><tr><th>ESPN ID</th><th>Name</th><th class="muted">Abbrev</th><th></th></tr></thead>
+      <tbody id="espnTeamsBody"></tbody>
+    </table>
+    <div id="mapStatus" class="muted"></div>
   </div>
 </main>
 
@@ -98,161 +118,9 @@ async function api(path, opts){
 
 // ----------------- Teams -----------------
 let _teamsCache = [];
-async function loadTeams(){
-  const rows = await api('/api/teams', { method:'GET', headers: { 'Content-Type':'application/json' } });
-  _teamsCache = rows;
-  const tb = document.getElementById('teamsBody'); tb.innerHTML = '';
-  rows.forEach(r=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.id}</td>
-      <td><input data-id="${r.id}" data-field="name" value="${r.name}"/></td>
-      <td><input data-id="${r.id}" data-field="espnId" value="${r.espnId||''}" placeholder="0-9"/></td>
-      <td><button class="btn secondary" data-del="${r.id}">Delete</button></td>
-    `;
-    tb.appendChild(tr);
-  });
-  tb.querySelectorAll('input').forEach(inp=>{
-    inp.addEventListener('change', async (e)=>{
-      const id = e.target.getAttribute('data-id');
-      const field = e.target.getAttribute('data-field');
-      const payload = { id: Number(id) }; payload[field] = e.target.value;
-      await api('/api/teams', { method:'PUT', body: JSON.stringify(payload) });
-    });
-  });
-  tb.querySelectorAll('button[data-del]').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const id = btn.getAttribute('data-del');
-      if(!confirm('Delete team '+id+'?')) return;
-      await api('/api/teams?id='+id, { method:'DELETE' });
-      await loadTeams();
-    });
-  });
-  renderScoresEditor(rows);
+function teamLabel(t) {
+  const espn = (t.espnId !== null && t.espnId !== undefined && t.espnId !== '') ? `ESPN:${t.espnId}` : 'ESPN:-';
+  return `${t.name} (${espn})`;
 }
-document.getElementById('addTeamBtn').addEventListener('click', async ()=>{
-  const name = document.getElementById('newTeamName').value.trim();
-  if(!name) return alert('Name required');
-  const espnId = document.getElementById('newTeamEspn').value.trim();
-  await api('/api/teams', { method:'POST', body: JSON.stringify({ name, espnId }) });
-  document.getElementById('newTeamName').value=''; document.getElementById('newTeamEspn').value='';
-  loadTeams();
-});
-
-// ----------------- Schedule -----------------
-async function loadWeek(){
-  const week = Number(document.getElementById('weekInput').value);
-  const pairs = await api('/api/schedule?week='+week, { method:'GET', headers:{ 'Content-Type':'application/json' } });
-  const teams = _teamsCache.length ? _teamsCache : await api('/api/teams', { method:'GET', headers:{ 'Content-Type':'application/json' } });
-  const options = (val) => ['<option value="">-- pick --</option>'].concat(teams.map(t=>`<option value="${t.id}" ${t.id==val?'selected':''}>${t.name}</option>`)).join('');
-  const tb = document.getElementById('schedBody'); tb.innerHTML='';
-  for(let i=0;i<5;i++){
-    const p = pairs[i] || { teamA:'', teamB:'' };
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${i+1}</td>
-      <td><select id="a-${i}">${options(p.teamA)}</select></td>
-      <td><select id="b-${i}">${options(p.teamB)}</select></td>
-    `;
-    tb.appendChild(tr);
-  }
-}
-document.getElementById('loadWeekBtn').addEventListener('click', loadWeek);
-document.getElementById('saveWeekBtn').addEventListener('click', async ()=>{
-  const week = Number(document.getElementById('weekInput').value);
-  const pairs = [];
-  for(let i=0;i<5;i++){
-    const a = Number(document.getElementById('a-'+i).value);
-    const b = Number(document.getElementById('b-'+i).value);
-    if(Number.isFinite(a) && Number.isFinite(b) && a && b){
-      if(a===b) return alert('Pair teams must differ.');
-      pairs.push({ teamA:a, teamB:b });
-    }
-  }
-  await api('/api/schedule?week='+week, { method:'PUT', body: JSON.stringify(pairs) });
-  alert('Saved schedule for week '+(week+1));
-});
-document.getElementById('genBtn').addEventListener('click', async ()=>{
-  if(!confirm('Generate double round-robin schedule for all 18 weeks (overwrites existing)?')) return;
-  await api('/api/schedule?generate=1', { method:'POST' });
-  alert('Schedule generated.');
-});
-
-// ----------------- Scores -----------------
-function renderScoresEditor(teams){
-  const tb = document.getElementById('scoresBody'); tb.innerHTML='';
-  teams.forEach(t=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${t.name}</td>
-      <td><input type="number" step="0.01" id="score-${t.id}" /></td>
-    `;
-    tb.appendChild(tr);
-  });
-}
-document.getElementById('loadScoresBtn').addEventListener('click', async ()=>{
-  const week = Number(document.getElementById('scoreWeek').value);
-  const rows = await api('/api/scores?week='+week, { method:'GET', headers:{ 'Content-Type':'application/json' } });
-  rows.forEach(r=>{
-    const inp = document.getElementById('score-'+r.teamId);
-    if(inp) inp.value = r.score;
-  });
-});
-document.getElementById('saveScoresBtn').addEventListener('click', async ()=>{
-  const week = Number(document.getElementById('scoreWeek').value);
-  const teams = _teamsCache.length ? _teamsCache : await api('/api/teams', { method:'GET', headers:{ 'Content-Type':'application/json' } });
-  const payload = {};
-  teams.forEach(t=>{
-    const v = document.getElementById('score-'+t.id).value;
-    if(v !== '') payload[t.id] = Number(v);
-  });
-  await api('/api/scores?week='+week, { method:'PUT', body: JSON.stringify(payload) });
-  alert('Scores saved for week '+(week+1));
-});
-document.getElementById('calcBtn').addEventListener('click', async ()=>{
-  const week = Number(document.getElementById('scoreWeek').value);
-  await api('/api/calc?week='+week, { method:'POST' });
-  document.getElementById('calcResult').textContent = 'Calculated.';
-  alert('Awards calculated for week '+(week+1));
-});
-
-// ----------------- ESPN fetch & autofill -----------------
-document.getElementById('fetchEspnBtn').addEventListener('click', async ()=>{
-  const zeroBasedWeek = Number(document.getElementById('scoreWeek').value); // 0..17 in our UI
-  const espnWeek = zeroBasedWeek + 1; // ESPN uses 1..18
-  // Ask the server to map ESPN teamId -> our teamId using teams.espn_id
-  const resp = await api('/api/espn?map=1&week='+espnWeek, { method: 'GET' });
-  const teams = _teamsCache.length ? _teamsCache : await api('/api/teams', { method:'GET', headers:{ 'Content-Type':'application/json' } });
-
-  // First try to use server-side mapped entries
-  if (Array.isArray(resp.mapped) && resp.mapped.length) {
-    resp.mapped.forEach(m => {
-      const inp = document.getElementById('score-'+m.teamId);
-      if (inp) inp.value = Number(m.points).toFixed(2);
-    });
-  } else {
-    // Fallback: do client-side mapping based on teams.espnId
-    const byEspn = new Map((resp.scores||[]).map(s => [String(s.espnTeamId), Number(s.points)]));
-    teams.forEach(t=>{
-      const pts = byEspn.get(String(t.espnId));
-      if (pts != null) {
-        const inp = document.getElementById('score-'+t.id);
-        if (inp) inp.value = Number(pts).toFixed(2);
-      }
-    });
-  }
-
-  // Warn if any ESPN teams didn’t match a DB team
-  if (Array.isArray(resp.missing) && resp.missing.length) {
-    alert('Heads up: some ESPN teams did not match your Teams list (check ESPN Team IDs 0-9). Missing: ' + resp.missing.map(x=>x.espnTeamId).join(', '));
-  }
-  alert(`Fetched ESPN week ${espnWeek} scores. Review and press "Save Scores".`);
-});
-
-// ----------------- Boot -----------------
-loadTeams();
-loadWeek();
-</script>
-</body>
-</html>
+function popu
 
