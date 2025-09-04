@@ -1,0 +1,14 @@
+{
+  "name": "ffl-fibonacci-vercel",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fibonacci Football League — Vercel serverless API + Vercel Postgres",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'Vercel builds serverless functions automatically'",
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "@vercel/postgres": "^0.9.0"
+  }
+}
