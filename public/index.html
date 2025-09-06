@@ -1,62 +1,147 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Fibonacci Football League – Standings</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Fibonacci Football League — Standings</title>
+  <link rel="stylesheet" href="/styles.css"/>
 </head>
 <body>
 <header>
-  <h1>Fibonacci Football League – Standings</h1>
+  <h1>Fibonacci Football League</h1>
 </header>
+
 <main>
+  <!-- Standings -->
   <div class="card">
-    <h2>Table</h2>
-    <div class="muted" id="meta"></div>
-    <table>
+    <div class="standings-header">
+      <h2>League Standings</h2>
+      <div>
+        <span id="weekBadge" class="badge" aria-live="polite">Loading…</span>
+        <button id="refreshBtn" class="btn secondary" type="button" title="Refresh standings">Refresh</button>
+        <a class="btn" href="/admin" title="Go to Admin">Admin</a>
+      </div>
+    </div>
+
+    <div id="alertArea" class="alert error" style="display:none" role="alert" aria-live="assertive"></div>
+
+    <table aria-describedby="standingsNote">
       <thead>
         <tr>
-          <th>#</th>
-          <th>Team</th>
-          <th class="muted">ESPN ID</th>
-          <th>FFL Pts</th>
-          <th class="muted">Raw Pts (sum)</th>
-          <th class="muted">Played</th>
-          <th class="muted">Last Week</th>
+          <th scope="col">#</th>
+          <th scope="col">Team</th>
+          <th scope="col" title="Fibonacci Football League points">FFL&nbsp;Pts</th>
+          <th scope="col" title="Sum of weekly raw scores">Raw&nbsp;Pts</th>
+          <th scope="col">Played</th>
+          <th scope="col" title="Points awarded in the most recent week for this team">Last&nbsp;Wk</th>
         </tr>
       </thead>
-      <tbody id="tbody"></tbody>
+      <tbody id="standingsBody">
+        <tr><td colspan="6" class="muted">Loading standings…</td></tr>
+      </tbody>
     </table>
+
+    <p id="standingsNote" class="muted" style="margin-top:10px">
+      Scoring per pair each week: 8, 5, 3, 2, 1 (ties share the average of tied places).
+    </p>
+  </div>
+
+  <!-- (Optional) About -->
+  <div class="card">
+    <h2>About the Fibonacci Football League</h2>
+    <p class="muted">
+      10 teams, 18 weeks. Each week’s five head-to-head matchups form five “pairs”.
+      We add the two raw scores in each pair and rank the five combined totals.
+      Points per pair: <strong>8</strong>, <strong>5</strong>, <strong>3</strong>, <strong>2</strong>, <strong>1</strong>.
+      Those points are awarded to both teams in the pair. Ties split the average of the tied places.
+    </p>
   </div>
 </main>
+
+<!-- If your API is on a different host, set this to your Vercel URL -->
 <script>
-async function loadStandings(){
-  try {
-    const res = await fetch('/api/standings');
-    if (!res.ok) throw new Error("API error " + res.status);
-    const data = await res.json();
-    document.getElementById('meta').textContent = 
-      data.latestWeek != null ? ('Through Week ' + (data.latestWeek+1)) : 'No weeks calculated yet.';
-    const tb = document.getElementById('tbody');
-    tb.innerHTML = '';
-    data.rows.forEach((r, idx) => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${idx+1}</td>
-        <td>${r.name}</td>
-        <td class="muted">${r.espnId ? '<span class="pill">'+r.espnId+'</span>' : ''}</td>
-        <td><strong>${r.seasonPts}</strong></td>
-        <td class="muted">${Number(r.rawSum).toFixed(2)}</td>
-        <td class="muted">${r.played}</td>
-        <td class="muted">${r.lastWeek == null ? '-' : r.lastWeek}</td>
-      `;
-      tb.appendChild(tr);
-    });
-  } catch (err) {
-    document.getElementById('meta').textContent = "Error loading standings: " + err.message;
+  // Example: window.__FFL_API_BASE__ = 'https://<your-app>.vercel.app';
+  window.__FFL_API_BASE__ = window.__FFL_API_BASE__ || '';
+</script>
+
+<script>
+const API_BASE = window.__FFL_API_BASE__ || '';
+
+function fmt2(n){ return Number(n ?? 0).toFixed(2); }
+
+function setBadge(latestWeek){
+  const b = document.getElementById('weekBadge');
+  if (latestWeek === null || latestWeek === undefined) {
+    b.textContent = 'Preseason';
+  } else {
+    // latestWeek is 0-based in our DB; show 1-based to users
+    b.textContent = 'As of Week ' + (Number(latestWeek) + 1);
   }
 }
+
+function showAlert(msg){
+  const a = document.getElementById('alertArea');
+  a.style.display = '';
+  a.textContent = msg;
+}
+
+function clearAlert(){
+  const a = document.getElementById('alertArea');
+  a.style.display = 'none';
+  a.textContent = '';
+}
+
+async function loadStandings(){
+  clearAlert();
+  const body = document.getElementById('standingsBody');
+  body.innerHTML = `<tr><td colspan="6" class="muted">Loading standings…</td></tr>`;
+
+  let res;
+  try {
+    res = await fetch(API_BASE + '/api/standings', { headers: { 'Accept':'application/json' } });
+  } catch (e) {
+    showAlert('Network error loading standings.');
+    body.innerHTML = `<tr><td colspan="6" class="muted">Unable to load standings.</td></tr>`;
+    return;
+  }
+
+  if (!res.ok) {
+    const txt = await res.text().catch(()=>String(res.status));
+    showAlert('Error loading standings: ' + txt);
+    body.innerHTML = `<tr><td colspan="6" class="muted">Unable to load standings.</td></tr>`;
+    return;
+  }
+
+  const data = await res.json();
+  setBadge(data.latestWeek);
+
+  const rows = Array.isArray(data.rows) ? data.rows : [];
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="6" class="muted">No teams yet. Visit the Admin page to add teams.</td></tr>`;
+    return;
+  }
+
+  // Already sorted server-side: seasonPts desc, rawSum desc, name asc
+  const frag = document.createDocumentFragment();
+  rows.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td>${r.name}</td>
+      <td>${fmt2(r.seasonPts)}</td>
+      <td>${fmt2(r.rawSum)}</td>
+      <td>${r.played ?? 0}</td>
+      <td>${r.lastWeek == null ? '-' : fmt2(r.lastWeek)}</td>
+    `;
+    frag.appendChild(tr);
+  });
+  body.innerHTML = '';
+  body.appendChild(frag);
+}
+
+document.getElementById('refreshBtn').addEventListener('click', loadStandings);
+
+// Boot
 loadStandings();
 </script>
 </body>
