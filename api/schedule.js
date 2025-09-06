@@ -1,6 +1,8 @@
+// api/schedule.js
 import { sql } from '@vercel/postgres';
 import { ensureSchema } from './db.js';
 import { requireAdmin } from './auth.js';
+import { withCors } from './cors.js';
 
 const TOTAL_WEEKS = 18;
 
@@ -27,7 +29,7 @@ function doubleRoundRobin(ids) {
   return base.concat(swapped).slice(0, TOTAL_WEEKS);
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   await ensureSchema();
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -79,4 +81,6 @@ export default async function handler(req, res) {
 
   res.status(405).end();
 }
+
+export default withCors(handler);
 

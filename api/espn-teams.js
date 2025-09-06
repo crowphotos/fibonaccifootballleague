@@ -1,5 +1,6 @@
 // api/espn-teams.js
 const LEAGUE_ID = Number(process.env.ESPN_LEAGUE_ID || 708357460);
+import { withCors } from './cors.js';
 
 function buildHeaders(cookies) {
   const h = {
@@ -29,48 +30,42 @@ async function tryJson(url, cookies) {
   }
 }
 
-export default async function handler(req, res) {
-  try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    const season = Number(url.searchParams.get('season')) || Number(process.env.ESPN_SEASON) || new Date().getFullYear();
+async function handler(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const season = Number(url.searchParams.get('season')) || Number(process.env.ESPN_SEASON) || new Date().getFullYear();
 
-    // Try read-optimized host first, then legacy host
-    const urls = [
-      `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mTeam`,
-      `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mTeam`
-    ];
+  const urls = [
+    `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mTeam`,
+    `https://fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mTeam`
+  ];
+  const cookies = (process.env.ESPN_SWID && process.env.ESPN_S2)
+    ? `SWID=${process.env.ESPN_SWID}; ESPN_S2=${process.env.ESPN_S2}`
+    : '';
 
-    const cookies = (process.env.ESPN_SWID && process.env.ESPN_S2)
-      ? `SWID=${process.env.ESPN_SWID}; ESPN_S2=${process.env.ESPN_S2}`
-      : '';
-
-    let lastErr = null;
-    for (const u of urls) {
-      const out = await tryJson(u, cookies);
-      if (out.ok) {
-        const teams = (out.data?.teams || []).map(t => ({
-          espnTeamId: t.id,
-          name: (t.location && t.nickname) ? `${t.location} ${t.nickname}` : (t.name || `Team ${t.id}`),
-          abbrev: t.abbrev || ''
-        })).sort((a,b)=> a.espnTeamId - b.espnTeamId);
-        return res.status(200).json({ season, leagueId: LEAGUE_ID, host: new URL(out.url).host, teams });
-      }
-      lastErr = out;
+  let lastErr = null;
+  for (const u of urls) {
+    const out = await tryJson(u, cookies);
+    if (out.ok) {
+      const teams = (out.data?.teams || []).map(t => ({
+        espnTeamId: t.id,
+        name: (t.location && t.nickname) ? `${t.location} ${t.nickname}` : (t.name || `Team ${t.id}`),
+        abbrev: t.abbrev || ''
+      })).sort((a,b)=> a.espnTeamId - b.espnTeamId);
+      return res.status(200).json({ season, leagueId: LEAGUE_ID, host: new URL(out.url).host, teams });
     }
-
-    // If we got here, all hosts failed
-    return res.status(lastErr?.status || 502).json({
-      source: 'espn',
-      ok: false,
-      season,
-      leagueId: LEAGUE_ID,
-      tried: urls,
-      ...lastErr,
-      hint: 'If contentType is text/html, it is usually a login/interstitial page. Ensure cookies are for an account in this private league.'
-    });
-  } catch (err) {
-    console.error('espn-teams error:', err);
-    res.status(500).json({ error: String(err?.message || err) });
+    lastErr = out;
   }
+
+  return res.status(lastErr?.status || 502).json({
+    source: 'espn',
+    ok: false,
+    season,
+    leagueId: LEAGUE_ID,
+    tried: urls,
+    ...lastErr,
+    hint: 'HTML content indicates login/interstitial. Ensure cookies belong to a member of this private league.'
+  });
 }
+
+export default withCors(handler);
 

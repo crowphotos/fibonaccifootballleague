@@ -1,3 +1,4 @@
+// api/auth.js
 export function requireAdmin(req, res) {
   const hdr = req.headers['authorization'] || '';
   const token = hdr.startsWith('Basic ') ? hdr.slice(6) : '';

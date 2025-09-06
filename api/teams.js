@@ -1,8 +1,10 @@
+// api/teams.js
 import { sql } from '@vercel/postgres';
 import { ensureSchema } from './db.js';
 import { requireAdmin } from './auth.js';
+import { withCors } from './cors.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   await ensureSchema();
   const method = req.method;
 
@@ -26,9 +28,7 @@ export default async function handler(req, res) {
     try { requireAdmin(req, res); } catch (e) { return res.status(e.statusCode || 401).send(e.message); }
     const { id, name, espnId } = req.body || {};
     if (!id) return res.status(400).json({ error: 'id required' });
-    await sql`
-      UPDATE teams SET name = COALESCE(${name}, name), espn_id = ${espnId || null} WHERE id = ${id}
-    `;
+    await sql`UPDATE teams SET name = COALESCE(${name}, name), espn_id = ${espnId || null} WHERE id = ${id}`;
     return res.status(200).json({ ok: true });
   }
 
@@ -43,4 +43,6 @@ export default async function handler(req, res) {
 
   res.status(405).end();
 }
+
+export default withCors(handler);
 

@@ -1,8 +1,10 @@
+// api/scores.js
 import { sql } from '@vercel/postgres';
 import { ensureSchema } from './db.js';
 import { requireAdmin } from './auth.js';
+import { withCors } from './cors.js';
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   await ensureSchema();
   const url = new URL(req.url, `http://${req.headers.host}`);
   const week = Number(url.searchParams.get('week'));
@@ -26,4 +28,6 @@ export default async function handler(req, res) {
 
   res.status(405).end();
 }
+
+export default withCors(handler);
 

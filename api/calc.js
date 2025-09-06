@@ -1,10 +1,12 @@
+// api/calc.js
 import { sql } from '@vercel/postgres';
 import { ensureSchema } from './db.js';
 import { requireAdmin } from './auth.js';
+import { withCors } from './cors.js';
 
 const WEEK_POINTS = [8, 5, 3, 2, 1];
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   await ensureSchema();
   if (req.method !== 'POST') return res.status(405).end();
   try { requireAdmin(req, res); } catch (e) { return res.status(e.statusCode || 401).send(e.message); }
@@ -46,7 +48,7 @@ export default async function handler(req, res) {
   await sql.begin(async (trx) => {
     await trx`DELETE FROM awards WHERE week = ${week}`;
     for (const p of pairs) {
-      const pts = awards.get(p.pairIndex) ?? 0;
+      const pts = awards.get(p.pair_index) ?? 0;     // ← bugfix here
       await trx`INSERT INTO awards (week, team_id, points) VALUES (${week}, ${p.team_a}, ${pts})`;
       await trx`INSERT INTO awards (week, team_id, points) VALUES (${week}, ${p.team_b}, ${pts})`;
     }
@@ -54,4 +56,6 @@ export default async function handler(req, res) {
 
   res.status(200).json({ ok: true });
 }
+
+export default withCors(handler);
 

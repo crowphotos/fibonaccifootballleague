@@ -1,5 +1,7 @@
 // api/diag-espn.js
-export default async function handler(req, res) {
+import { withCors } from './cors.js';
+
+async function handler(req, res) {
   const swid = process.env.ESPN_SWID || '';
   const s2 = process.env.ESPN_S2 || '';
   const hasSwid = !!swid;
@@ -14,4 +16,6 @@ export default async function handler(req, res) {
     }
   });
 }
+
+export default withCors(handler);
 

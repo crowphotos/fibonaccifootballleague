@@ -1,3 +1,4 @@
+// api/db.js
 import { sql } from '@vercel/postgres';
 
 export async function ensureSchema() {

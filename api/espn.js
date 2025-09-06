@@ -1,6 +1,7 @@
 // api/espn.js
 import { sql } from '@vercel/postgres';
 import { ensureSchema } from './db.js';
+import { withCors } from './cors.js';
 
 const LEAGUE_ID = Number(process.env.ESPN_LEAGUE_ID || 708357460);
 
@@ -32,7 +33,7 @@ async function tryJson(url, cookies) {
   }
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const season = Number(url.searchParams.get('season')) || Number(process.env.ESPN_SEASON) || new Date().getFullYear();
@@ -101,4 +102,6 @@ export default async function handler(req, res) {
     res.status(500).json({ error: String(err?.message || err) });
   }
 }
+
+export default withCors(handler);
 
