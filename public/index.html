@@ -46,6 +46,42 @@
     </p>
   </div>
 
+  <!-- Weekly Results -->
+  <div class="card">
+    <div class="standings-header">
+      <h2>Weekly Results</h2>
+      <div class="flex">
+        <label class="sr-only" for="weekSelect">Select Week</label>
+        <select id="weekSelect" title="Select Week"></select>
+        <button id="prevWeek" class="btn secondary" type="button" title="Previous week">‹</button>
+        <button id="nextWeek" class="btn secondary" type="button" title="Next week">›</button>
+        <button id="loadWeekBtn" class="btn" type="button" title="Load selected week">Load</button>
+      </div>
+    </div>
+
+    <div id="weekAlert" class="alert error" style="display:none" role="alert" aria-live="assertive"></div>
+
+    <table aria-describedby="weekNote">
+      <thead>
+        <tr>
+          <th scope="col">Rank</th>
+          <th scope="col">Pair</th>
+          <th scope="col">Score A</th>
+          <th scope="col">Score B</th>
+          <th scope="col">Combined</th>
+          <th scope="col">Points</th>
+        </tr>
+      </thead>
+      <tbody id="weekBody">
+        <tr><td colspan="6" class="muted">Pick a week to view results…</td></tr>
+      </tbody>
+    </table>
+
+    <p id="weekNote" class="muted" style="margin-top:10px">
+      If this week hasn’t been calculated in Admin yet, points shown are <em>computed</em> (preview) based on the combined totals. Once calculated, you’ll see the official awarded points.
+    </p>
+  </div>
+
   <!-- (Optional) About -->
   <div class="card">
     <h2>About the Fibonacci Football League</h2>
@@ -74,40 +110,39 @@ function setBadge(latestWeek){
   if (latestWeek === null || latestWeek === undefined) {
     b.textContent = 'Preseason';
   } else {
-    // latestWeek is 0-based in our DB; show 1-based to users
     b.textContent = 'As of Week ' + (Number(latestWeek) + 1);
   }
 }
 
-function showAlert(msg){
-  const a = document.getElementById('alertArea');
-  a.style.display = '';
-  a.textContent = msg;
+function showAlert(id, msg){
+  const el = document.getElementById(id);
+  el.style.display = '';
+  el.textContent = msg;
+}
+function clearAlert(id){
+  const el = document.getElementById(id);
+  el.style.display = 'none';
+  el.textContent = '';
 }
 
-function clearAlert(){
-  const a = document.getElementById('alertArea');
-  a.style.display = 'none';
-  a.textContent = '';
-}
-
+/* ---------------- Standings ---------------- */
 async function loadStandings(){
-  clearAlert();
+  clearAlert('alertArea');
   const body = document.getElementById('standingsBody');
   body.innerHTML = `<tr><td colspan="6" class="muted">Loading standings…</td></tr>`;
 
   let res;
   try {
     res = await fetch(API_BASE + '/api/standings', { headers: { 'Accept':'application/json' } });
-  } catch (e) {
-    showAlert('Network error loading standings.');
+  } catch {
+    showAlert('alertArea','Network error loading standings.');
     body.innerHTML = `<tr><td colspan="6" class="muted">Unable to load standings.</td></tr>`;
     return;
   }
 
   if (!res.ok) {
     const txt = await res.text().catch(()=>String(res.status));
-    showAlert('Error loading standings: ' + txt);
+    showAlert('alertArea','Error loading standings: ' + txt);
     body.innerHTML = `<tr><td colspan="6" class="muted">Unable to load standings.</td></tr>`;
     return;
   }
@@ -121,7 +156,6 @@ async function loadStandings(){
     return;
   }
 
-  // Already sorted server-side: seasonPts desc, rawSum desc, name asc
   const frag = document.createDocumentFragment();
   rows.forEach((r, i) => {
     const tr = document.createElement('tr');
@@ -137,9 +171,100 @@ async function loadStandings(){
   });
   body.innerHTML = '';
   body.appendChild(frag);
+
+  // Seed Weekly Results selector with the latest week (if present)
+  if (data.latestWeek != null) {
+    setWeekSelect(Number(data.latestWeek));
+    loadWeekResults();
+  } else {
+    setWeekSelect(0);
+  }
 }
 
 document.getElementById('refreshBtn').addEventListener('click', loadStandings);
+
+/* --------------- Weekly Results --------------- */
+function setWeekSelect(week0){
+  const sel = document.getElementById('weekSelect');
+  sel.innerHTML = '';
+  for (let w = 0; w < 18; w++) {
+    const opt = document.createElement('option');
+    opt.value = String(w);
+    opt.textContent = 'Week ' + (w + 1);
+    if (w === week0) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+function getSelectedWeek(){
+  return Number(document.getElementById('weekSelect').value || '0');
+}
+
+async function loadWeekResults(){
+  clearAlert('weekAlert');
+  const tbody = document.getElementById('weekBody');
+  const week = getSelectedWeek();
+
+  tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading results for Week ${week+1}…</td></tr>`;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE}/api/week?week=${week}`);
+  } catch {
+    showAlert('weekAlert','Network error loading weekly results.');
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">Unable to load results.</td></tr>`;
+    return;
+  }
+
+  if (!res.ok) {
+    const txt = await res.text().catch(()=>String(res.status));
+    showAlert('weekAlert','Error loading weekly results: ' + txt);
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">Unable to load results.</td></tr>`;
+    return;
+  }
+
+  const data = await res.json();
+  const pairs = Array.isArray(data.pairs) ? data.pairs : [];
+  if (!pairs.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="muted">No schedule for Week ${week+1}.</td></tr>`;
+    return;
+  }
+
+  const awarded = !!data.awardsApplied;
+  const frag = document.createDocumentFragment();
+  for (const p of pairs) {
+    const a = p.teams[0], b = p.teams[1];
+    const pts = awarded && p.pointsAwarded != null
+      ? fmt2(p.pointsAwarded)
+      : `<span class="muted">${fmt2(p.pointsComputed)} (pending)</span>`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.rank}</td>
+      <td>${a.name} &nbsp;vs&nbsp; ${b.name}</td>
+      <td>${fmt2(a.score)}</td>
+      <td>${fmt2(b.score)}</td>
+      <td>${fmt2(p.sum)}</td>
+      <td>${pts}</td>
+    `;
+    frag.appendChild(tr);
+  }
+  tbody.innerHTML = '';
+  tbody.appendChild(frag);
+}
+
+// Controls
+document.getElementById('loadWeekBtn').addEventListener('click', loadWeekResults);
+document.getElementById('prevWeek').addEventListener('click', ()=>{
+  const sel = document.getElementById('weekSelect');
+  const w = Math.max(0, Number(sel.value) - 1);
+  sel.value = String(w);
+  loadWeekResults();
+});
+document.getElementById('nextWeek').addEventListener('click', ()=>{
+  const sel = document.getElementById('weekSelect');
+  const w = Math.min(17, Number(sel.value) + 1);
+  sel.value = String(w);
+  loadWeekResults();
+});
 
 // Boot
 loadStandings();
