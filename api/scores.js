@@ -17,12 +17,10 @@ async function handler(req, res) {
   if (req.method === 'PUT') {
     try { requireAdmin(req, res); } catch (e) { return res.status(e.statusCode || 401).send(e.message); }
     const payload = req.body || {};
-    await sql.begin(async (trx) => {
-      await trx`DELETE FROM scores WHERE week = ${week}`;
-      for (const [teamId, score] of Object.entries(payload)) {
-        await trx`INSERT INTO scores (week, team_id, score) VALUES (${week}, ${Number(teamId)}, ${Number(score)})`;
-      }
-    });
+    await sql`DELETE FROM scores WHERE week = ${week}`;
+    for (const [teamId, score] of Object.entries(payload)) {
+      await sql`INSERT INTO scores (week, team_id, score) VALUES (${week}, ${Number(teamId)}, ${Number(score)})`;
+    }
     return res.status(200).json({ ok: true });
   }
 

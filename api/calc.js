@@ -45,14 +45,12 @@ async function handler(req, res) {
     i = j;
   }
 
-  await sql.begin(async (trx) => {
-    await trx`DELETE FROM awards WHERE week = ${week}`;
-    for (const p of pairs) {
-      const pts = awards.get(p.pair_index) ?? 0;     // ← bugfix here
-      await trx`INSERT INTO awards (week, team_id, points) VALUES (${week}, ${p.team_a}, ${pts})`;
-      await trx`INSERT INTO awards (week, team_id, points) VALUES (${week}, ${p.team_b}, ${pts})`;
-    }
-  });
+  await sql`DELETE FROM awards WHERE week = ${week}`;
+  for (const p of pairs) {
+    const pts = awards.get(p.pair_index) ?? 0;
+    await sql`INSERT INTO awards (week, team_id, points) VALUES (${week}, ${p.team_a}, ${pts})`;
+    await sql`INSERT INTO awards (week, team_id, points) VALUES (${week}, ${p.team_b}, ${pts})`;
+  }
 
   res.status(200).json({ ok: true });
 }

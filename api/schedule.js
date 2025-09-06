@@ -47,14 +47,13 @@ async function handler(req, res) {
     try { requireAdmin(req, res); } catch (e) { return res.status(e.statusCode || 401).send(e.message); }
     const week = Number(url.searchParams.get('week'));
     const pairs = Array.isArray(req.body) ? req.body : [];
-    await sql.begin(async (trx) => {
-      await trx`DELETE FROM schedule WHERE week = ${week}`;
-      for (let i = 0; i < pairs.length; i++) {
-        const { teamA, teamB } = pairs[i];
-        if (teamA === teamB) throw new Error('Pair teams must be different');
-        await trx`INSERT INTO schedule (week, pair_index, team_a, team_b) VALUES (${week}, ${i}, ${teamA}, ${teamB})`;
-      }
-    });
+
+    await sql`DELETE FROM schedule WHERE week = ${week}`;
+    for (let i = 0; i < pairs.length; i++) {
+      const { teamA, teamB } = pairs[i];
+      if (teamA === teamB) return res.status(400).json({ error: 'Pair teams must be different' });
+      await sql`INSERT INTO schedule (week, pair_index, team_a, team_b) VALUES (${week}, ${i}, ${teamA}, ${teamB})`;
+    }
     return res.status(200).json({ ok: true, saved: pairs.length });
   }
 
@@ -65,17 +64,18 @@ async function handler(req, res) {
 
     const teams = await sql`SELECT id FROM teams ORDER BY id ASC`;
     if (teams.rows.length !== 10) return res.status(400).json({ error: 'Exactly 10 teams required' });
+
     const ids = teams.rows.map(r => r.id);
     const sched = doubleRoundRobin(ids);
-    await sql.begin(async (trx) => {
-      for (let w = 0; w < sched.length; w++) {
-        const pairs = sched[w];
-        await trx`DELETE FROM schedule WHERE week = ${w}`;
-        for (let i = 0; i < pairs.length; i++) {
-          await trx`INSERT INTO schedule (week, pair_index, team_a, team_b) VALUES (${w}, ${i}, ${pairs[i].a}, ${pairs[i].b})`;
-        }
+
+    // sequential deletes/inserts (no transaction)
+    for (let w = 0; w < sched.length; w++) {
+      await sql`DELETE FROM schedule WHERE week = ${w}`;
+      const pairs = sched[w];
+      for (let i = 0; i < pairs.length; i++) {
+        await sql`INSERT INTO schedule (week, pair_index, team_a, team_b) VALUES (${w}, ${i}, ${pairs[i].a}, ${pairs[i].b})`;
       }
-    });
+    }
     return res.status(200).json({ ok: true, weeks: sched.length });
   }
 
