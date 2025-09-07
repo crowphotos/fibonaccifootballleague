@@ -1,0 +1,79 @@
+// api/diag.js
+import { withCors } from './cors.js';
+import { sql } from '@vercel/postgres';
+
+async function handler(req, res) {
+  if (req.method !== 'GET') return res.status(405).end();
+
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const skipDb = url.searchParams.get('db') === '0' || url.searchParams.get('quick') === '1';
+
+  // Environment flags (no secrets exposed)
+  const env = {
+    has_POSTGRES_URL: Boolean(process.env.POSTGRES_URL),
+    has_POSTGRES_URL_NON_POOLING: Boolean(process.env.POSTGRES_URL_NON_POOLING),
+    has_ADMIN_USER: Boolean(process.env.ADMIN_USER),
+    has_ADMIN_PASS: Boolean(process.env.ADMIN_PASS),
+    has_ESPN_LEAGUE_ID: Boolean(process.env.ESPN_LEAGUE_ID),
+    has_ESPN_SEASON: Boolean(process.env.ESPN_SEASON),
+    has_ESPN_SWID: Boolean(process.env.ESPN_SWID),
+    has_ESPN_S2: Boolean(process.env.ESPN_S2),
+  };
+
+  const espn = {
+    leagueId: Number(process.env.ESPN_LEAGUE_ID || 708357460),
+    season: Number(process.env.ESPN_SEASON) || new Date().getFullYear(),
+    swidLooksBraced: !!(process.env.ESPN_SWID && process.env.ESPN_SWID.startsWith('{') && process.env.ESPN_SWID.endsWith('}')),
+    hasSWID: env.has_ESPN_SWID,
+    hasS2: env.has_ESPN_S2,
+  };
+
+  const vercel = {
+    url: process.env.VERCEL_URL || null,
+    region: process.env.VERCEL_REGION || null,
+    env: process.env.VERCEL_ENV || null,
+  };
+
+  // Optional DB check
+  let db = { skipped: skipDb };
+  if (!skipDb) {
+    try {
+      const out = await sql`SELECT 1 AS ok`;
+      db = { ok: true, result: out.rows[0] };
+    } catch (e) {
+      db = { ok: false, error: String(e?.message || e) };
+    }
+  }
+
+  // Helpful reference of expected routes
+  const routes = [
+    '/api/standings',
+    '/api/teams',
+    '/api/schedule',
+    '/api/scores',
+    '/api/calc',
+    '/api/week',
+    '/api/espn',
+    '/api/espn-teams',
+    '/api/map-teams',
+    '/api/schedule-complete',
+  ];
+
+  res.status(200).json({
+    ok: true,
+    now: new Date().toISOString(),
+    node: process.version,
+    vercel,
+    env,
+    espn,
+    db,
+    routes,
+    hints: {
+      skipDbCheck: 'Append ?quick=1 or ?db=0 to skip DB test (faster cold starts).',
+      weeksAreZeroBased: 'DB uses 0..17 for weeks (Week 1 = 0).',
+    }
+  });
+}
+
+export default withCors(handler);
+
