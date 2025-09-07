@@ -17,10 +17,8 @@
     <div class="flex">
       <label class="sr-only" for="u">Admin user</label>
       <input id="u" placeholder="Admin user" title="Admin user" />
-
       <label class="sr-only" for="p">Admin password</label>
       <input id="p" type="password" placeholder="Admin password" title="Admin password" />
-
       <button class="btn" id="login" type="button">Set Credentials</button>
       <span class="muted">Stored in this browser only.</span>
     </div>
@@ -32,10 +30,8 @@
     <div class="flex">
       <label class="sr-only" for="newTeamName">Team name</label>
       <input id="newTeamName" placeholder="Team name" title="Team name" />
-
       <label class="sr-only" for="newTeamEspn">ESPN Team ID (0-9)</label>
       <input id="newTeamEspn" placeholder="ESPN Team ID (0-9)" title="ESPN Team ID (0-9)" />
-
       <button class="btn" id="addTeamBtn" type="button">Add Team</button>
     </div>
     <table>
@@ -54,10 +50,25 @@
   <!-- Schedule -->
   <div class="card">
     <h2>Schedule</h2>
+
+    <!-- Generate full double RR (Weeks 1–18) -->
     <div class="flex">
       <button class="btn" id="genBtn" type="button">Generate Double Round-Robin (18 weeks)</button>
     </div>
-    <div class="flex">
+
+    <!-- NEW: Auto-complete a range (default DB weeks 14–17 = Weeks 15–18) -->
+    <div class="flex" style="margin-top:8px">
+      <label for="completeStart">Start (DB week 0–17)</label>
+      <input id="completeStart" type="number" min="0" max="17" value="14" title="Start DB week (0-based; default 14 = Week 15)" />
+      <label for="completeEnd">End (DB week 0–17)</label>
+      <input id="completeEnd" type="number" min="0" max="17" value="17" title="End DB week (0-based; default 17 = Week 18)" />
+      <button class="btn secondary" id="previewCompleteBtn" type="button" title="Preview without writing">Preview only</button>
+      <button class="btn" id="completeBtn" type="button" title="Fill the range so each pair meets exactly twice overall">Auto-complete (range)</button>
+      <span class="muted">Tip: DB weeks 14–17 correspond to Weeks 15–18.</span>
+    </div>
+
+    <!-- Week editor -->
+    <div class="flex" style="margin-top:8px">
       <label class="sr-only" for="weekInput">Schedule week (0–17)</label>
       <input id="weekInput" type="number" min="0" max="17" value="0" title="Schedule week (0–17)" />
       <button class="btn secondary" id="loadWeekBtn" type="button">Load Week</button>
@@ -110,7 +121,7 @@
 
       <button class="btn" id="refreshEspn" type="button">Refresh ESPN List</button>
       <button class="btn" id="autoMapBtn" type="button" title="Try to match by name and write espn_id">Auto-map by name</button>
-      <span class="muted">Tip: Select a local team, then click an ESPN team below to assign its ID.</span>
+      <span class="muted">Select a local team, then click an ESPN team below to assign its ID.</span>
     </div>
     <table>
       <thead>
@@ -161,7 +172,6 @@ async function api(path, opts){
     }
     throw new Error('API error');
   }
-  // Some endpoints may return 204/empty
   const ct = res.headers.get('content-type') || '';
   if (!ct.includes('application/json')) return {};
   return res.json();
@@ -206,7 +216,6 @@ async function loadTeams(){
       const field = e.target.getAttribute('data-field');
       const payload = { id: Number(id) }; payload[field] = e.target.value;
       await api('/api/teams', { method:'PUT', body: JSON.stringify(payload) });
-      // update cache + dropdown labels
       const t = _teamsCache.find(x=>x.id===Number(id));
       if (t) t[field] = e.target.value;
       populateLocalTeamSelect();
@@ -234,7 +243,7 @@ document.getElementById('addTeamBtn').addEventListener('click', async ()=>{
   loadTeams();
 });
 
-// ----------------- Schedule -----------------
+// ----------------- Schedule Editor -----------------
 async function loadWeek(){
   const week = Number(document.getElementById('weekInput').value);
   const pairs = await api('/api/schedule?week='+week, { method:'GET' });
@@ -278,6 +287,40 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
   if(!confirm('Generate double round-robin schedule for all 18 weeks (overwrites existing)?')) return;
   await api('/api/schedule?generate=1', { method:'POST' });
   alert('Schedule generated.');
+});
+
+// -------- NEW: Complete a DB week range (defaults 14..17 = Weeks 15–18) --------
+function getRange(){
+  let start = Number(document.getElementById('completeStart').value);
+  let end = Number(document.getElementById('completeEnd').value);
+  if (!Number.isFinite(start) || start < 0) start = 14;
+  if (!Number.isFinite(end) || end > 17) end = 17;
+  if (end < start) [start, end] = [start, start];
+  // write back clamped values
+  document.getElementById('completeStart').value = String(start);
+  document.getElementById('completeEnd').value = String(end);
+  return { start, end };
+}
+document.getElementById('previewCompleteBtn').addEventListener('click', async ()=>{
+  const { start, end } = getRange();
+  try {
+    const out = await api(`/api/schedule-complete?start=${start}&end=${end}&dry=1`, { method:'GET' });
+    console.log('Preview (no writes):', out);
+    alert(`Preview weeks ${start}..${end} printed to Console (DevTools).`);
+  } catch (e) {
+    alert('Error previewing completion: ' + (e?.message || e));
+  }
+});
+document.getElementById('completeBtn').addEventListener('click', async ()=>{
+  const { start, end } = getRange();
+  if (!confirm(`Create DB weeks ${start}..${end}? This overwrites existing entries in that range.`)) return;
+  try {
+    const out = await api(`/api/schedule-complete?start=${start}&end=${end}`, { method:'POST' });
+    console.log('Completion result:', out);
+    alert(`Created DB weeks ${start}..${end}. Use "Load Week" to review.`);
+  } catch (e) {
+    alert('Error completing schedule: ' + (e?.message || e));
+  }
 });
 
 // ----------------- Scores -----------------
@@ -346,7 +389,7 @@ document.getElementById('fetchEspnBtn').addEventListener('click', async ()=>{
   alert(`Fetched ESPN week ${espnWeek} scores. Review and press "Save Scores".`);
 });
 
-// ----------------- ESPN Mapping section -----------------
+// ----------------- ESPN Mapping -----------------
 let _espnTeamsCache = [];
 async function loadEspnTeams(){
   try{
@@ -383,11 +426,9 @@ function renderEspnTeams(){
       const localId = Number(document.getElementById('mapLocalTeam').value);
       if(!localId) return alert('Pick a local team in the dropdown first.');
       await api('/api/teams', { method:'PUT', body: JSON.stringify({ id: localId, espnId }) });
-      // update cache + UI labels
       const t = _teamsCache.find(x=>x.id===localId);
       if (t) t.espnId = espnId;
       populateLocalTeamSelect();
-      // also update Teams table cell if present
       const inp = document.querySelector(`input[data-id="${localId}"][data-field="espnId"]`);
       if (inp) inp.value = espnId;
       document.getElementById('mapStatus').textContent = `Assigned ESPN ID ${espnId} to "${t?.name || localId}".`;
