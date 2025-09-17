@@ -211,35 +211,43 @@ tbody tr:nth-child(2n) {
   background: color-mix(in srgb, var(--surface) 92%, black);
 }
 
-/* ===== Top 4 row highlights ===== */
-tbody tr { position: relative; } /* needed for the stripe */
+/* ===== Top 4 row highlights (no pseudo-elements) ===== */
 tbody tr.row-top {
   transition: background-color .2s ease, box-shadow .2s ease;
 }
-tbody tr.row-top::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 6px;
-  border-top-left-radius: 6px;
-  border-bottom-left-radius: 6px;
-}
+
+/* 1st place */
 tbody tr.row-top-1 {
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  background-color: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  background-image: linear-gradient(180deg, #ffd700, #f2c200);
+  background-size: 6px 100%;
+  background-repeat: no-repeat;
+  background-position: left top;
 }
-tbody tr.row-top-1::before { background: linear-gradient(180deg, #ffd700, #f2c200); }
+/* 2nd place */
 tbody tr.row-top-2 {
-  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  background-color: color-mix(in srgb, var(--accent) 7%, var(--surface));
+  background-image: linear-gradient(180deg, #eef1f5, #cfd3d8);
+  background-size: 6px 100%;
+  background-repeat: no-repeat;
+  background-position: left top;
 }
-tbody tr.row-top-2::before { background: linear-gradient(180deg, #eef1f5, #cfd3d8); }
+/* 3rd place */
 tbody tr.row-top-3 {
-  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  background-color: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  background-image: linear-gradient(180deg, #e0b189, #c58b61);
+  background-size: 6px 100%;
+  background-repeat: no-repeat;
+  background-position: left top;
 }
-tbody tr.row-top-3::before { background: linear-gradient(180deg, #e0b189, #c58b61); }
+/* 4th place */
 tbody tr.row-top-4 {
-  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+  background-color: color-mix(in srgb, var(--accent) 3%, var(--surface));
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--accent) 40%, transparent), color-mix(in srgb, var(--accent) 25%, transparent));
+  background-size: 6px 100%;
+  background-repeat: no-repeat;
+  background-position: left top;
 }
-tbody tr.row-top-4::before { background: color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* ------------------ Standings (public page helpers) ------------------ */
 .standings-header {
