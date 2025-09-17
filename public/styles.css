@@ -1,5 +1,5 @@
 /* =======================================================================
-   Fibonacci Football League — Public + Admin Styles (merged latest)
+   Fibonacci Football League — Public + Admin Styles (latest)
    ======================================================================= */
 
 /* ------------------ CSS Variables (Dark default / Light alt) ------------------ */
@@ -210,6 +210,36 @@ tbody tr:hover {
 tbody tr:nth-child(2n) {
   background: color-mix(in srgb, var(--surface) 92%, black);
 }
+
+/* ===== Top 4 row highlights ===== */
+tbody tr { position: relative; } /* needed for the stripe */
+tbody tr.row-top {
+  transition: background-color .2s ease, box-shadow .2s ease;
+}
+tbody tr.row-top::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 6px;
+  border-top-left-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+tbody tr.row-top-1 {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+tbody tr.row-top-1::before { background: linear-gradient(180deg, #ffd700, #f2c200); }
+tbody tr.row-top-2 {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface));
+}
+tbody tr.row-top-2::before { background: linear-gradient(180deg, #eef1f5, #cfd3d8); }
+tbody tr.row-top-3 {
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+tbody tr.row-top-3::before { background: linear-gradient(180deg, #e0b189, #c58b61); }
+tbody tr.row-top-4 {
+  background: color-mix(in srgb, var(--accent) 3%, var(--surface));
+}
+tbody tr.row-top-4::before { background: color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* ------------------ Standings (public page helpers) ------------------ */
 .standings-header {

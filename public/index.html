@@ -82,7 +82,7 @@
     </p>
   </div>
 
-  <!-- (Optional) About -->
+  <!-- About + Payouts -->
   <div class="card">
     <h2>About the Fibonacci Football League</h2>
     <p class="muted">
@@ -91,6 +91,17 @@
       Points per pair: <strong>8</strong>, <strong>5</strong>, <strong>3</strong>, <strong>2</strong>, <strong>1</strong>.
       Those points are awarded to both teams in the pair. Ties split the average of the tied places.
     </p>
+
+    <h3 style="margin-top:12px">Payouts</h3>
+    <p class="muted" style="margin-top:4px">
+      Based on a <strong>$25 buy-in</strong> from 10 teams (total pot <strong>$250</strong>):
+    </p>
+    <ul class="muted" style="margin-top:4px">
+      <li><strong>1st place:</strong> $130</li>
+      <li><strong>2nd place:</strong> $80</li>
+      <li><strong>3rd place:</strong> $30</li>
+      <li><strong>4th place:</strong> $10</li>
+    </ul>
   </div>
 </main>
 
@@ -125,7 +136,17 @@ function clearAlert(id){
   el.textContent = '';
 }
 
-/* ---------------- Standings ---------------- */
+/* ---------- Standings (top-4 highlight + badges) ---------- */
+function placeBadge(idx){
+  switch(idx){
+    case 0: return '<span class="place place-1" aria-label="1st place">🥇 1st</span>';
+    case 1: return '<span class="place place-2" aria-label="2nd place">🥈 2nd</span>';
+    case 2: return '<span class="place place-3" aria-label="3rd place">🥉 3rd</span>';
+    case 3: return '<span class="place place-4" aria-label="4th place">4th</span>';
+    default: return '';
+  }
+}
+
 async function loadStandings(){
   clearAlert('alertArea');
   const body = document.getElementById('standingsBody');
@@ -158,10 +179,15 @@ async function loadStandings(){
 
   const frag = document.createDocumentFragment();
   rows.forEach((r, i) => {
+    const badge = placeBadge(i);
     const tr = document.createElement('tr');
+
+    // Highlight the top 4 rows
+    if (i < 4) tr.classList.add('row-top', `row-top-${i+1}`);
+
     tr.innerHTML = `
       <td>${i+1}</td>
-      <td>${r.name}</td>
+      <td>${r.name} ${badge}</td>
       <td>${fmt2(r.seasonPts)}</td>
       <td>${fmt2(r.rawSum)}</td>
       <td>${r.played ?? 0}</td>
