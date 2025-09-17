@@ -21,121 +21,104 @@ async function fetchJson(url, cookies) {
   const ct = r.headers.get('content-type') || '';
   const text = await r.text().catch(() => '');
   if (!ct.includes('application/json')) {
-    return { ok: false, status: r.status, url: r.url || url, contentType: ct, bodySnippet: text.slice(0, 500) };
+    return { ok: false, status: r.status, url: r.url || url, contentType: ct, bodySnippet: text.slice(0, 800) };
   }
   try {
     return { ok: true, status: r.status, url: r.url || url, data: JSON.parse(text) };
   } catch (e) {
-    return { ok: false, status: r.status, url: r.url || url, error: String(e?.message || e), bodySnippet: text.slice(0, 500) };
+    return { ok: false, status: r.status, url: r.url || url, error: String(e?.message || e), bodySnippet: text.slice(0, 800) };
   }
 }
 
-function tryNumber(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function N(x) { const n = Number(x); return Number.isFinite(n) ? n : null; }
+
+function sumPlayerWeekStats(side, week) {
+  // Look through roster entries -> player.stats for the specific scoringPeriodId
+  const entries = side?.rosterForCurrentScoringPeriod?.entries || side?.rosterForMatchupPeriod?.entries || [];
+  let sum = 0, any = false;
+  for (const e of entries) {
+    // Common places for applied totals:
+    const a = N(e?.appliedTotal);
+    if (a != null) { sum += a; any = true; continue; }
+
+    const b = N(e?.playerPoolEntry?.appliedStatTotal);
+    if (b != null) { sum += b; any = true; continue; }
+
+    const stats = e?.playerPoolEntry?.player?.stats;
+    if (Array.isArray(stats)) {
+      const s = stats.find(s => s?.scoringPeriodId === week && (s?.statSourceId === 0 || s?.statSourceId == null));
+      const v = N(s?.appliedTotal ?? s?.appliedStatTotal);
+      if (v != null) { sum += v; any = true; continue; }
+    }
+  }
+  if (any) return sum;
+
+  // Some shapes put a whole-period total here
+  const whole = N(side?.rosterForCurrentScoringPeriod?.appliedStatTotal ?? side?.rosterForMatchupPeriod?.appliedStatTotal);
+  return whole != null ? whole : 0;
 }
 
-/**
- * Extract team points from a schedule item’s side (home/away) object, trying
- * multiple common ESPN fields and finally summing roster entries if needed.
- */
-function extractTeamPoints(side) {
-  if (!side) return 0;
-
-  // 1) Common total fields seen across views
+function extractSidePoints(side, week) {
+  // Try common total fields first
   const cand =
-    tryNumber(side.totalPoints) ??
-    tryNumber(side.totalPointsLive) ??
-    tryNumber(side.score) ??
-    tryNumber(side.cumulativeScore);
+    N(side?.totalPoints) ??
+    N(side?.totalPointsLive) ??
+    N(side?.score) ??
+    N(side?.cumulativeScore) ??
+    (side?.pointsByScoringPeriod && N(side.pointsByScoringPeriod[week]));
   if (cand != null) return cand;
 
-  // 2) Some leagues expose a period-specific object
-  //    side.pointsByScoringPeriod?.[scoringPeriodId] could exist in some views (rare).
-  //    We don't have scoringPeriodId here; if a single value exists, use it.
-  if (side.pointsByScoringPeriod && typeof side.pointsByScoringPeriod === 'object') {
-    const vals = Object.values(side.pointsByScoringPeriod).map(tryNumber).filter(v => v != null);
-    if (vals.length === 1) return vals[0];
-  }
-
-  // 3) mBoxscore: sum roster entries if available
-  //    Typical shapes:
-  //      side.rosterForCurrentScoringPeriod.entries[].appliedTotal
-  //      side.rosterForCurrentScoringPeriod.entries[].playerPoolEntry.appliedStatTotal
-  //      side.rosterForCurrentScoringPeriod.appliedStatTotal (rare, sometimes present)
-  const rfcsp = side.rosterForCurrentScoringPeriod;
-  if (rfcsp) {
-    const whole = tryNumber(rfcsp.appliedStatTotal);
-    if (whole != null) return whole;
-
-    const entries = Array.isArray(rfcsp.entries) ? rfcsp.entries : [];
-    let sum = 0, any = false;
-    for (const e of entries) {
-      const a = tryNumber(e?.appliedTotal);
-      const b = tryNumber(e?.playerPoolEntry?.appliedStatTotal);
-      const v = a ?? b;
-      if (v != null) { sum += v; any = true; }
-    }
-    if (any) return sum;
-  }
-
-  // 4) Fallback: 0
-  return 0;
+  // Fallback: sum the roster entries for the exact scoring period
+  return sumPlayerWeekStats(side, week) || 0;
 }
 
-/** Parse scores from an ESPN 'schedule' array (works for multiple views). */
-function parseScoresFromSchedule(schedule) {
+function parseScheduleScores(schedule, week) {
   const out = [];
   for (const g of (schedule || [])) {
     const homeId = g?.home?.teamId ?? g?.home?.team?.id ?? g?.home?.team?.teamId;
     const awayId = g?.away?.teamId ?? g?.away?.team?.id ?? g?.away?.team?.teamId;
     if (!Number.isFinite(homeId) || !Number.isFinite(awayId)) continue;
-
-    const homePts = extractTeamPoints(g.home);
-    const awayPts = extractTeamPoints(g.away);
+    const homePts = extractSidePoints(g.home, week);
+    const awayPts = extractSidePoints(g.away, week);
     out.push({ espnTeamId: Number(homeId), points: homePts });
     out.push({ espnTeamId: Number(awayId), points: awayPts });
   }
   return out;
 }
 
-/**
- * Try multiple ESPN "views" because different leagues/formats expose totals in different ones.
- * Order is chosen for the most direct totals first, then heavier boxscore.
- */
-async function fetchWeekScores({ season, espnWeek, cookies }) {
-  const hosts = [
-    'https://lm-api-reads.fantasy.espn.com',
-    'https://fantasy.espn.com'
-  ];
-  const views = [
-    'mMatchupScore',  // often has home.totalPoints
-    'mScoreboard',    // often has home.score
-    'mBoxscore'       // requires roster sum fallback sometimes
+async function fetchWeekScores({ season, week, cookies, debug }) {
+  // Try both hosts and both parameter styles:
+  //  - scoringPeriodId=week (NFL week 1..18)
+  //  - matchupPeriodId=week (league matchup week 1..N; often same but not always)
+  const hosts = ['https://lm-api-reads.fantasy.espn.com', 'https://fantasy.espn.com'];
+  const views  = ['mMatchupScore', 'mScoreboard', 'mBoxscore'];
+  const paramCombos = [
+    (h,v) => `${h}/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=${v}&scoringPeriodId=${week}`,
+    (h,v) => `${h}/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=${v}&matchupPeriodId=${week}`,
+    (h,v) => `${h}/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=${v}&scoringPeriodId=${week}&matchupPeriodId=${week}`
   ];
 
-  let lastErr = null;
+  let last = null;
   for (const host of hosts) {
     for (const view of views) {
-      const url = `${host}/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=${view}&scoringPeriodId=${espnWeek}`;
-      const r = await fetchJson(url, cookies);
-      if (!r.ok) { lastErr = r; continue; }
+      for (const make of paramCombos) {
+        const url = make(host, view);
+        const r = await fetchJson(url, cookies);
+        if (!r.ok) { last = { ...r, view }; continue; }
+        const schedule = r.data?.schedule;
+        if (!Array.isArray(schedule)) { last = { ok:false, error:'No schedule[]', url, view }; continue; }
 
-      const schedule = r.data?.schedule;
-      if (!Array.isArray(schedule)) { lastErr = { ok: false, error: 'No schedule array in JSON', url }; continue; }
-
-      const scores = parseScoresFromSchedule(schedule);
-
-      // If at least one non-zero or (non-null number) is present, accept.
-      if (scores.some(s => Number.isFinite(s.points) && s.points !== 0)) {
-        return { ok: true, host: new URL(r.url).host, view, scores };
+        const scores = parseScheduleScores(schedule, week);
+        const nonZero = scores.some(s => Number.isFinite(s.points) && s.points !== 0);
+        if (nonZero) {
+          return { ok: true, host: new URL(r.url).host, view, url, scores, tried: debug ? undefined : undefined };
+        }
+        // keep trying
+        last = { ok:false, error:'All-zero after parse', url, view };
       }
-
-      // If all zeros, keep trying other views/hosts before giving up.
-      lastErr = { ok: false, error: 'All-zero totals from this view', url, view };
     }
   }
-  return { ok: false, ...lastErr };
+  return { ok:false, ...last };
 }
 
 async function handler(req, res) {
@@ -143,11 +126,10 @@ async function handler(req, res) {
 
   const url = new URL(req.url, `http://${req.headers.host}`);
   const season = Number(url.searchParams.get('season')) || Number(process.env.ESPN_SEASON) || new Date().getFullYear();
-  const weekParam = url.searchParams.get('week');
-  const mapFlag = url.searchParams.get('map') === '1';
+  const espnWeek = Number(url.searchParams.get('week'));
+  const mapFlag  = url.searchParams.get('map') === '1';
+  const debug    = url.searchParams.get('debug') === '1';
 
-  // ESPN uses week 1..18; our admin UI already adds +1 when calling this route.
-  const espnWeek = Number(weekParam);
   if (!Number.isFinite(espnWeek) || espnWeek < 1 || espnWeek > 18) {
     return res.status(400).json({ error: 'Missing or invalid ?week= (ESPN uses 1..18)' });
   }
@@ -156,18 +138,18 @@ async function handler(req, res) {
     ? `SWID=${process.env.ESPN_SWID}; ESPN_S2=${process.env.ESPN_S2}`
     : '';
 
-  const pulled = await fetchWeekScores({ season, espnWeek, cookies });
+  const pulled = await fetchWeekScores({ season, week: espnWeek, cookies, debug });
   if (!pulled.ok) {
     return res.status(200).json({
       source: 'espn',
       ok: false,
       season, week: espnWeek,
-      error: pulled.error || 'ESPN did not return usable JSON',
+      error: pulled.error || 'No usable JSON from ESPN',
       details: pulled.bodySnippet || pulled.contentType || pulled.view || pulled.url || null
     });
   }
 
-  let payload = {
+  const payload = {
     source: 'espn',
     ok: true,
     season,
@@ -178,7 +160,6 @@ async function handler(req, res) {
   };
 
   if (mapFlag) {
-    // Map ESPN teamId -> local team via teams.espn_id
     const teams = (await sql`SELECT id, name, espn_id AS "espnId" FROM teams ORDER BY id ASC`).rows;
     const byEspn = new Map(teams.map(t => [String(t.espnId ?? '').trim(), t]));
     const mapped = [];
