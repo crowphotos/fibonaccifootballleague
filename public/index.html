@@ -1,269 +1,341 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Fibonacci Football League — Standings</title>
-  <link rel="stylesheet" href="/styles.css"/>
-</head>
-<body>
-<header>
-  <h1>Fibonacci Football League</h1>
-</header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fibonacci Football League — Standings</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Fibonacci Football League 2025</h1>
+    </header>
 
-<main>
-  <!-- Standings -->
-  <div class="card">
-    <div class="standings-header">
-      <h2>League Standings</h2>
-      <div>
-        <span id="weekBadge" class="badge" aria-live="polite">Loading…</span>
-        <button id="refreshBtn" class="btn secondary" type="button" title="Refresh standings">Refresh</button>
-        <a class="btn" href="/admin" title="Go to Admin">Admin</a>
+    <main>
+      <!-- Standings -->
+      <div class="card">
+        <div class="standings-header">
+          <h2>League Standings</h2>
+          <div>
+            <span id="weekBadge" class="badge" aria-live="polite"
+              >Loading…</span
+            >
+            <button
+              id="refreshBtn"
+              class="btn secondary"
+              type="button"
+              title="Refresh standings"
+            >
+              Refresh
+            </button>
+            <a class="btn" href="/admin" title="Go to Admin">Admin</a>
+          </div>
+        </div>
+
+        <div
+          id="alertArea"
+          class="alert error"
+          style="display: none"
+          role="alert"
+          aria-live="assertive"
+        ></div>
+
+        <table aria-describedby="standingsNote">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Team</th>
+              <th scope="col" title="Fibonacci Football League points">
+                FFL&nbsp;Pts
+              </th>
+              <th scope="col" title="Sum of weekly raw scores">Raw&nbsp;Pts</th>
+              <th scope="col">Played</th>
+              <th
+                scope="col"
+                title="Points awarded in the most recent week for this team"
+              >
+                Last&nbsp;Wk
+              </th>
+            </tr>
+          </thead>
+          <tbody id="standingsBody">
+            <tr>
+              <td colspan="6" class="muted">Loading standings…</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p id="standingsNote" class="muted" style="margin-top: 10px">
+          Scoring per pair each week: 8, 5, 3, 2, 1 (ties share the average of
+          tied places).
+        </p>
       </div>
-    </div>
 
-    <div id="alertArea" class="alert error" style="display:none" role="alert" aria-live="assertive"></div>
+      <!-- Weekly Results -->
+      <div class="card">
+        <div class="standings-header">
+          <h2>Weekly Results</h2>
+          <div class="flex">
+            <label class="sr-only" for="weekSelect">Select Week</label>
+            <select id="weekSelect" title="Select Week"></select>
+            <button
+              id="prevWeek"
+              class="btn secondary"
+              type="button"
+              title="Previous week"
+            >
+              ‹
+            </button>
+            <button
+              id="nextWeek"
+              class="btn secondary"
+              type="button"
+              title="Next week"
+            >
+              ›
+            </button>
+            <button
+              id="loadWeekBtn"
+              class="btn"
+              type="button"
+              title="Load selected week"
+            >
+              Load
+            </button>
+          </div>
+        </div>
 
-    <table aria-describedby="standingsNote">
-      <thead>
-        <tr>
-          <th scope="col">#</th>
-          <th scope="col">Team</th>
-          <th scope="col" title="Fibonacci Football League points">FFL&nbsp;Pts</th>
-          <th scope="col" title="Sum of weekly raw scores">Raw&nbsp;Pts</th>
-          <th scope="col">Played</th>
-          <th scope="col" title="Points awarded in the most recent week for this team">Last&nbsp;Wk</th>
-        </tr>
-      </thead>
-      <tbody id="standingsBody">
-        <tr><td colspan="6" class="muted">Loading standings…</td></tr>
-      </tbody>
-    </table>
+        <div
+          id="weekAlert"
+          class="alert error"
+          style="display: none"
+          role="alert"
+          aria-live="assertive"
+        ></div>
 
-    <p id="standingsNote" class="muted" style="margin-top:10px">
-      Scoring per pair each week: 8, 5, 3, 2, 1 (ties share the average of tied places).
-    </p>
-  </div>
+        <table aria-describedby="weekNote">
+          <thead>
+            <tr>
+              <th scope="col">Rank</th>
+              <th scope="col">Pair</th>
+              <th scope="col">Score A</th>
+              <th scope="col">Score B</th>
+              <th scope="col">Combined</th>
+              <th scope="col">Points</th>
+            </tr>
+          </thead>
+          <tbody id="weekBody">
+            <tr>
+              <td colspan="6" class="muted">Pick a week to view results…</td>
+            </tr>
+          </tbody>
+        </table>
 
-  <!-- Weekly Results -->
-  <div class="card">
-    <div class="standings-header">
-      <h2>Weekly Results</h2>
-      <div class="flex">
-        <label class="sr-only" for="weekSelect">Select Week</label>
-        <select id="weekSelect" title="Select Week"></select>
-        <button id="prevWeek" class="btn secondary" type="button" title="Previous week">‹</button>
-        <button id="nextWeek" class="btn secondary" type="button" title="Next week">›</button>
-        <button id="loadWeekBtn" class="btn" type="button" title="Load selected week">Load</button>
+        <p id="weekNote" class="muted" style="margin-top: 10px">
+          If this week hasn’t been calculated in Admin yet, points shown are
+          <em>computed</em> (preview) based on the combined totals. Once
+          calculated, you’ll see the official awarded points.
+        </p>
       </div>
-    </div>
 
-    <div id="weekAlert" class="alert error" style="display:none" role="alert" aria-live="assertive"></div>
+      <!-- About + Payouts -->
+      <div class="card">
+        <h2>About the Fibonacci Football League</h2>
+        <p class="muted">
+          10 teams, 18 weeks. Each week’s five head-to-head matchups form five
+          “pairs”. We add the two raw scores in each pair and rank the five
+          combined totals. Points per pair: <strong>8</strong>,
+          <strong>5</strong>, <strong>3</strong>, <strong>2</strong>,
+          <strong>1</strong>. Those points are awarded to both teams in the
+          pair. Ties split the average of the tied places.
+        </p>
 
-    <table aria-describedby="weekNote">
-      <thead>
-        <tr>
-          <th scope="col">Rank</th>
-          <th scope="col">Pair</th>
-          <th scope="col">Score A</th>
-          <th scope="col">Score B</th>
-          <th scope="col">Combined</th>
-          <th scope="col">Points</th>
-        </tr>
-      </thead>
-      <tbody id="weekBody">
-        <tr><td colspan="6" class="muted">Pick a week to view results…</td></tr>
-      </tbody>
-    </table>
+        <h3 style="margin-top: 12px">Payouts</h3>
+        <p class="muted" style="margin-top: 4px">
+          Based on a <strong>$25 buy-in</strong> from 10 teams (total pot
+          <strong>$250</strong>):
+        </p>
+        <ul class="muted" style="margin-top: 4px">
+          <li><strong>1st place:</strong> $130</li>
+          <li><strong>2nd place:</strong> $80</li>
+          <li><strong>3rd place:</strong> $30</li>
+          <li><strong>4th place:</strong> $10</li>
+        </ul>
+      </div>
+    </main>
 
-    <p id="weekNote" class="muted" style="margin-top:10px">
-      If this week hasn’t been calculated in Admin yet, points shown are <em>computed</em> (preview) based on the combined totals. Once calculated, you’ll see the official awarded points.
-    </p>
-  </div>
+    <!-- If your API is on a different host, set this to your Vercel URL -->
+    <script>
+      // Example: window.__FFL_API_BASE__ = 'https://<your-app>.vercel.app';
+      window.__FFL_API_BASE__ = window.__FFL_API_BASE__ || "";
+    </script>
 
-  <!-- About + Payouts -->
-  <div class="card">
-    <h2>About the Fibonacci Football League</h2>
-    <p class="muted">
-      10 teams, 18 weeks. Each week’s five head-to-head matchups form five “pairs”.
-      We add the two raw scores in each pair and rank the five combined totals.
-      Points per pair: <strong>8</strong>, <strong>5</strong>, <strong>3</strong>, <strong>2</strong>, <strong>1</strong>.
-      Those points are awarded to both teams in the pair. Ties split the average of the tied places.
-    </p>
+    <script>
+      const API_BASE = window.__FFL_API_BASE__ || "";
 
-    <h3 style="margin-top:12px">Payouts</h3>
-    <p class="muted" style="margin-top:4px">
-      Based on a <strong>$25 buy-in</strong> from 10 teams (total pot <strong>$250</strong>):
-    </p>
-    <ul class="muted" style="margin-top:4px">
-      <li><strong>1st place:</strong> $130</li>
-      <li><strong>2nd place:</strong> $80</li>
-      <li><strong>3rd place:</strong> $30</li>
-      <li><strong>4th place:</strong> $10</li>
-    </ul>
-  </div>
-</main>
+      function fmt2(n) {
+        return Number(n ?? 0).toFixed(2);
+      }
 
-<!-- If your API is on a different host, set this to your Vercel URL -->
-<script>
-  // Example: window.__FFL_API_BASE__ = 'https://<your-app>.vercel.app';
-  window.__FFL_API_BASE__ = window.__FFL_API_BASE__ || '';
-</script>
+      function setBadge(latestWeek) {
+        const b = document.getElementById("weekBadge");
+        if (latestWeek === null || latestWeek === undefined) {
+          b.textContent = "Preseason";
+        } else {
+          b.textContent = "As of Week " + (Number(latestWeek) + 1);
+        }
+      }
 
-<script>
-const API_BASE = window.__FFL_API_BASE__ || '';
+      function showAlert(id, msg) {
+        const el = document.getElementById(id);
+        el.style.display = "";
+        el.textContent = msg;
+      }
+      function clearAlert(id) {
+        const el = document.getElementById(id);
+        el.style.display = "none";
+        el.textContent = "";
+      }
 
-function fmt2(n){ return Number(n ?? 0).toFixed(2); }
+      /* ---------- Standings (top-4 highlight + badges) ---------- */
+      function placeBadge(idx) {
+        switch (idx) {
+          case 0:
+            return '<span class="place place-1" aria-label="1st place">🥇 1st</span>';
+          case 1:
+            return '<span class="place place-2" aria-label="2nd place">🥈 2nd</span>';
+          case 2:
+            return '<span class="place place-3" aria-label="3rd place">🥉 3rd</span>';
+          case 3:
+            return '<span class="place place-4" aria-label="4th place">4th</span>';
+          default:
+            return "";
+        }
+      }
 
-function setBadge(latestWeek){
-  const b = document.getElementById('weekBadge');
-  if (latestWeek === null || latestWeek === undefined) {
-    b.textContent = 'Preseason';
-  } else {
-    b.textContent = 'As of Week ' + (Number(latestWeek) + 1);
-  }
-}
+      async function loadStandings() {
+        clearAlert("alertArea");
+        const body = document.getElementById("standingsBody");
+        body.innerHTML = `<tr><td colspan="6" class="muted">Loading standings…</td></tr>`;
 
-function showAlert(id, msg){
-  const el = document.getElementById(id);
-  el.style.display = '';
-  el.textContent = msg;
-}
-function clearAlert(id){
-  const el = document.getElementById(id);
-  el.style.display = 'none';
-  el.textContent = '';
-}
+        let res;
+        try {
+          res = await fetch(API_BASE + "/api/standings", {
+            headers: { Accept: "application/json" },
+          });
+        } catch {
+          showAlert("alertArea", "Network error loading standings.");
+          body.innerHTML = `<tr><td colspan="6" class="muted">Unable to load standings.</td></tr>`;
+          return;
+        }
 
-/* ---------- Standings (top-4 highlight + badges) ---------- */
-function placeBadge(idx){
-  switch(idx){
-    case 0: return '<span class="place place-1" aria-label="1st place">🥇 1st</span>';
-    case 1: return '<span class="place place-2" aria-label="2nd place">🥈 2nd</span>';
-    case 2: return '<span class="place place-3" aria-label="3rd place">🥉 3rd</span>';
-    case 3: return '<span class="place place-4" aria-label="4th place">4th</span>';
-    default: return '';
-  }
-}
+        if (!res.ok) {
+          const txt = await res.text().catch(() => String(res.status));
+          showAlert("alertArea", "Error loading standings: " + txt);
+          body.innerHTML = `<tr><td colspan="6" class="muted">Unable to load standings.</td></tr>`;
+          return;
+        }
 
-async function loadStandings(){
-  clearAlert('alertArea');
-  const body = document.getElementById('standingsBody');
-  body.innerHTML = `<tr><td colspan="6" class="muted">Loading standings…</td></tr>`;
+        const data = await res.json();
+        setBadge(data.latestWeek);
 
-  let res;
-  try {
-    res = await fetch(API_BASE + '/api/standings', { headers: { 'Accept':'application/json' } });
-  } catch {
-    showAlert('alertArea','Network error loading standings.');
-    body.innerHTML = `<tr><td colspan="6" class="muted">Unable to load standings.</td></tr>`;
-    return;
-  }
+        const rows = Array.isArray(data.rows) ? data.rows : [];
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="6" class="muted">No teams yet. Visit the Admin page to add teams.</td></tr>`;
+          return;
+        }
 
-  if (!res.ok) {
-    const txt = await res.text().catch(()=>String(res.status));
-    showAlert('alertArea','Error loading standings: ' + txt);
-    body.innerHTML = `<tr><td colspan="6" class="muted">Unable to load standings.</td></tr>`;
-    return;
-  }
+        const frag = document.createDocumentFragment();
+        rows.forEach((r, i) => {
+          const badge = placeBadge(i);
+          const tr = document.createElement("tr");
 
-  const data = await res.json();
-  setBadge(data.latestWeek);
+          // Highlight the top 4 rows
+          if (i < 4) tr.classList.add("row-top", `row-top-${i + 1}`);
 
-  const rows = Array.isArray(data.rows) ? data.rows : [];
-  if (!rows.length) {
-    body.innerHTML = `<tr><td colspan="6" class="muted">No teams yet. Visit the Admin page to add teams.</td></tr>`;
-    return;
-  }
-
-  const frag = document.createDocumentFragment();
-  rows.forEach((r, i) => {
-    const badge = placeBadge(i);
-    const tr = document.createElement('tr');
-
-    // Highlight the top 4 rows
-    if (i < 4) tr.classList.add('row-top', `row-top-${i+1}`);
-
-    tr.innerHTML = `
-      <td>${i+1}</td>
+          tr.innerHTML = `
+      <td>${i + 1}</td>
       <td>${r.name} ${badge}</td>
       <td>${fmt2(r.seasonPts)}</td>
       <td>${fmt2(r.rawSum)}</td>
       <td>${r.played ?? 0}</td>
-      <td>${r.lastWeek == null ? '-' : fmt2(r.lastWeek)}</td>
+      <td>${r.lastWeek == null ? "-" : fmt2(r.lastWeek)}</td>
     `;
-    frag.appendChild(tr);
-  });
-  body.innerHTML = '';
-  body.appendChild(frag);
+          frag.appendChild(tr);
+        });
+        body.innerHTML = "";
+        body.appendChild(frag);
 
-  // Seed Weekly Results selector with the latest week (if present)
-  if (data.latestWeek != null) {
-    setWeekSelect(Number(data.latestWeek));
-    loadWeekResults();
-  } else {
-    setWeekSelect(0);
-  }
-}
+        // Seed Weekly Results selector with the latest week (if present)
+        if (data.latestWeek != null) {
+          setWeekSelect(Number(data.latestWeek));
+          loadWeekResults();
+        } else {
+          setWeekSelect(0);
+        }
+      }
 
-document.getElementById('refreshBtn').addEventListener('click', loadStandings);
+      document
+        .getElementById("refreshBtn")
+        .addEventListener("click", loadStandings);
 
-/* --------------- Weekly Results --------------- */
-function setWeekSelect(week0){
-  const sel = document.getElementById('weekSelect');
-  sel.innerHTML = '';
-  for (let w = 0; w < 18; w++) {
-    const opt = document.createElement('option');
-    opt.value = String(w);
-    opt.textContent = 'Week ' + (w + 1);
-    if (w === week0) opt.selected = true;
-    sel.appendChild(opt);
-  }
-}
-function getSelectedWeek(){
-  return Number(document.getElementById('weekSelect').value || '0');
-}
+      /* --------------- Weekly Results --------------- */
+      function setWeekSelect(week0) {
+        const sel = document.getElementById("weekSelect");
+        sel.innerHTML = "";
+        for (let w = 0; w < 18; w++) {
+          const opt = document.createElement("option");
+          opt.value = String(w);
+          opt.textContent = "Week " + (w + 1);
+          if (w === week0) opt.selected = true;
+          sel.appendChild(opt);
+        }
+      }
+      function getSelectedWeek() {
+        return Number(document.getElementById("weekSelect").value || "0");
+      }
 
-async function loadWeekResults(){
-  clearAlert('weekAlert');
-  const tbody = document.getElementById('weekBody');
-  const week = getSelectedWeek();
+      async function loadWeekResults() {
+        clearAlert("weekAlert");
+        const tbody = document.getElementById("weekBody");
+        const week = getSelectedWeek();
 
-  tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading results for Week ${week+1}…</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">Loading results for Week ${week + 1}…</td></tr>`;
 
-  let res;
-  try {
-    res = await fetch(`${API_BASE}/api/week?week=${week}`);
-  } catch {
-    showAlert('weekAlert','Network error loading weekly results.');
-    tbody.innerHTML = `<tr><td colspan="6" class="muted">Unable to load results.</td></tr>`;
-    return;
-  }
+        let res;
+        try {
+          res = await fetch(`${API_BASE}/api/week?week=${week}`);
+        } catch {
+          showAlert("weekAlert", "Network error loading weekly results.");
+          tbody.innerHTML = `<tr><td colspan="6" class="muted">Unable to load results.</td></tr>`;
+          return;
+        }
 
-  if (!res.ok) {
-    const txt = await res.text().catch(()=>String(res.status));
-    showAlert('weekAlert','Error loading weekly results: ' + txt);
-    tbody.innerHTML = `<tr><td colspan="6" class="muted">Unable to load results.</td></tr>`;
-    return;
-  }
+        if (!res.ok) {
+          const txt = await res.text().catch(() => String(res.status));
+          showAlert("weekAlert", "Error loading weekly results: " + txt);
+          tbody.innerHTML = `<tr><td colspan="6" class="muted">Unable to load results.</td></tr>`;
+          return;
+        }
 
-  const data = await res.json();
-  const pairs = Array.isArray(data.pairs) ? data.pairs : [];
-  if (!pairs.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="muted">No schedule for Week ${week+1}.</td></tr>`;
-    return;
-  }
+        const data = await res.json();
+        const pairs = Array.isArray(data.pairs) ? data.pairs : [];
+        if (!pairs.length) {
+          tbody.innerHTML = `<tr><td colspan="6" class="muted">No schedule for Week ${week + 1}.</td></tr>`;
+          return;
+        }
 
-  const awarded = !!data.awardsApplied;
-  const frag = document.createDocumentFragment();
-  for (const p of pairs) {
-    const a = p.teams[0], b = p.teams[1];
-    const pts = awarded && p.pointsAwarded != null
-      ? fmt2(p.pointsAwarded)
-      : `<span class="muted">${fmt2(p.pointsComputed)} (pending)</span>`;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
+        const awarded = !!data.awardsApplied;
+        const frag = document.createDocumentFragment();
+        for (const p of pairs) {
+          const a = p.teams[0],
+            b = p.teams[1];
+          const pts =
+            awarded && p.pointsAwarded != null
+              ? fmt2(p.pointsAwarded)
+              : `<span class="muted">${fmt2(p.pointsComputed)} (pending)</span>`;
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
       <td>${p.rank}</td>
       <td>${a.name} &nbsp;vs&nbsp; ${b.name}</td>
       <td>${fmt2(a.score)}</td>
@@ -271,30 +343,31 @@ async function loadWeekResults(){
       <td>${fmt2(p.sum)}</td>
       <td>${pts}</td>
     `;
-    frag.appendChild(tr);
-  }
-  tbody.innerHTML = '';
-  tbody.appendChild(frag);
-}
+          frag.appendChild(tr);
+        }
+        tbody.innerHTML = "";
+        tbody.appendChild(frag);
+      }
 
-// Controls
-document.getElementById('loadWeekBtn').addEventListener('click', loadWeekResults);
-document.getElementById('prevWeek').addEventListener('click', ()=>{
-  const sel = document.getElementById('weekSelect');
-  const w = Math.max(0, Number(sel.value) - 1);
-  sel.value = String(w);
-  loadWeekResults();
-});
-document.getElementById('nextWeek').addEventListener('click', ()=>{
-  const sel = document.getElementById('weekSelect');
-  const w = Math.min(17, Number(sel.value) + 1);
-  sel.value = String(w);
-  loadWeekResults();
-});
+      // Controls
+      document
+        .getElementById("loadWeekBtn")
+        .addEventListener("click", loadWeekResults);
+      document.getElementById("prevWeek").addEventListener("click", () => {
+        const sel = document.getElementById("weekSelect");
+        const w = Math.max(0, Number(sel.value) - 1);
+        sel.value = String(w);
+        loadWeekResults();
+      });
+      document.getElementById("nextWeek").addEventListener("click", () => {
+        const sel = document.getElementById("weekSelect");
+        const w = Math.min(17, Number(sel.value) + 1);
+        sel.value = String(w);
+        loadWeekResults();
+      });
 
-// Boot
-loadStandings();
-</script>
-</body>
+      // Boot
+      loadStandings();
+    </script>
+  </body>
 </html>
-
