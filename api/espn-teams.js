@@ -1,3 +1,4 @@
+import { getSeason } from '../lib/season.js';
 // api/espn-teams.js
 const LEAGUE_ID = Number(process.env.ESPN_LEAGUE_ID || 708357460);
 import { withCors } from './cors.js';
@@ -32,7 +33,8 @@ async function tryJson(url, cookies) {
 
 async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const season = Number(url.searchParams.get('season')) || Number(process.env.ESPN_SEASON) || new Date().getFullYear();
+  const season = getSeason(url, res);
+  if (season === null) return;
 
   const urls = [
     `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${LEAGUE_ID}?view=mTeam`,

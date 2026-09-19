@@ -11,7 +11,7 @@ vercel               # Deploy to preview
 vercel --prod        # Deploy to production
 ```
 
-No test runner or linter is configured. Manual testing via browser or curl against `http://localhost:3000`.
+Run `npm test` for PostgreSQL season migration and API isolation tests. No linter is configured. Manual testing via browser or curl against `http://localhost:3000`.
 
 ## Architecture
 
@@ -19,7 +19,7 @@ Serverless app on Vercel: static HTML/JS frontend in `public/` + Node.js API fun
 
 **Key patterns:**
 - Every `api/*.js` file is a Vercel serverless function. All export a default `handler(req, res)` and wrap it with `cors()` from `api/cors.js`.
-- `api/db.js` exports `ensureSchema()` which creates all four tables if they don't exist. Every endpoint calls this on each request — no migration tooling.
+- `api/db.js` exports `ensureSchema()` which runs the atomic, idempotent season migration in `lib/schema.js` once per function instance. Existing records become 2025; team definitions are copied into 2026. All data queries and writes must include season, resolved by `lib/season.js` (default 2026).
 - Basic auth for write operations comes from `api/auth.js` checking `ADMIN_USER`/`ADMIN_PASS` env vars against the `Authorization: Basic ...` header.
 - All files use ES module syntax (`import`/`export`), per `"type": "module"` in package.json.
 
@@ -44,7 +44,7 @@ Set in Vercel project settings (or `.env.local` for `vercel dev`):
 | `ADMIN_USER` / `ADMIN_PASS` | Yes | Basic auth for write endpoints |
 | `POSTGRES_*` | Yes | Auto-injected by Vercel Postgres storage add-on |
 | `ESPN_S2` / `ESPN_SWID` | No | Browser cookies for private ESPN leagues |
-| `ESPN_SEASON` / `ESPN_LEAGUE_ID` | No | Default ESPN league parameters |
+| `ESPN_LEAGUE_ID` | No | ESPN league ID; season comes from the request |
 
 ## Deployment
 

@@ -1,3 +1,4 @@
+import { getSeason } from '../lib/season.js';
 // api/week.js
 import { sql } from '@vercel/postgres';
 import { ensureSchema } from './db.js';
@@ -34,13 +35,15 @@ async function handler(req, res) {
   await ensureSchema();
 
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const season = getSeason(url, res);
+  if (season === null) return;
   const weekParam = url.searchParams.get('week');
 
   let week = Number(weekParam);
-  if (!Number.isFinite(week) || week < 0 || week > 17) {
+  if (weekParam === null || !Number.isFinite(week) || week < 0 || week > 17) {
     // Default to the most recent week we have (awards, else scores, else 0)
-    const a = await sql`SELECT MAX(week) AS w FROM awards`;
-    const s = await sql`SELECT MAX(week) AS w FROM scores`;
+    const a = await sql`SELECT MAX(week) AS w FROM awards WHERE season = ${season}`;
+    const s = await sql`SELECT MAX(week) AS w FROM scores WHERE season = ${season}`;
     const wa = a.rows[0]?.w;
     const ws = s.rows[0]?.w;
     week = Number.isFinite(wa) ? wa : (Number.isFinite(ws) ? ws : 0);
@@ -50,13 +53,13 @@ async function handler(req, res) {
   const sched = (await sql`
     SELECT pair_index, team_a, team_b
     FROM schedule
-    WHERE week = ${week}
+    WHERE season = ${season} AND week = ${week}
     ORDER BY pair_index ASC
   `).rows;
 
   if (sched.length === 0) {
     return res.status(200).json({
-      week,
+      season, week,
       pairs: [],
       awardsApplied: false,
       note: 'No schedule for this week.'
@@ -64,12 +67,12 @@ async function handler(req, res) {
   }
 
   // Get all teams (simpler than IN (...) juggling)
-  const teams = (await sql`SELECT id, name FROM teams ORDER BY id ASC`).rows;
+  const teams = (await sql`SELECT id, name FROM teams WHERE season = ${season} ORDER BY id ASC`).rows;
   const nameById = new Map(teams.map(t => [t.id, t.name]));
 
   // Scores & awards
-  const scoresRows = (await sql`SELECT team_id, score FROM scores WHERE week = ${week}`).rows;
-  const awardsRows = (await sql`SELECT team_id, points FROM awards WHERE week = ${week}`).rows;
+  const scoresRows = (await sql`SELECT team_id, score FROM scores WHERE season = ${season} AND week = ${week}`).rows;
+  const awardsRows = (await sql`SELECT team_id, points FROM awards WHERE season = ${season} AND week = ${week}`).rows;
   const scoreById = new Map(scoresRows.map(r => [r.team_id, Number(r.score) || 0]));
   const awardById = new Map(awardsRows.map(r => [r.team_id, Number(r.points) || 0]));
 
@@ -111,7 +114,7 @@ async function handler(req, res) {
   enriched.sort((a, b) => a.rank - b.rank);
 
   res.status(200).json({
-    week,
+    season, week,
     pairs: enriched,
     awardsApplied
   });

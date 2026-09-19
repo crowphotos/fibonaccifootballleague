@@ -1,3 +1,4 @@
+import { getSeason } from '../lib/season.js';
 // api/schedule-complete.js
 import { sql } from '@vercel/postgres';
 import { ensureSchema } from './db.js';
@@ -141,12 +142,14 @@ async function handler(req, res) {
   try { requireAdmin(req, res); } catch (e) { return res.status(e.statusCode || 401).send(e.message); }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const season = getSeason(url, res);
+  if (season === null) return;
   const startWeek = Math.max(14, Number(url.searchParams.get('start') ?? 14)); // 0-based; 14 => Week 15
   const endWeek   = Math.min(TOTAL_WEEKS - 1, Number(url.searchParams.get('end') ?? 17)); // inclusive
   const dryRun = url.searchParams.get('dry') === '1';
 
   // Load teams
-  const teams = (await sql`SELECT id, name FROM teams ORDER BY id ASC`).rows;
+  const teams = (await sql`SELECT id, name FROM teams WHERE season = ${season} ORDER BY id ASC`).rows;
   if (teams.length !== 10) {
     return res.status(400).json({ error: 'Exactly 10 teams required', teams: teams.length });
   }
@@ -156,7 +159,7 @@ async function handler(req, res) {
   const scheduled = (await sql`
     SELECT week, team_a AS "teamA", team_b AS "teamB"
     FROM schedule
-    WHERE week < ${startWeek}
+    WHERE season = ${season} AND week < ${startWeek}
     ORDER BY week, pair_index
   `).rows;
 
@@ -184,10 +187,10 @@ async function handler(req, res) {
   if (!dryRun) {
     for (let w = 0; w < weeksToFill; w++) {
       const week = startWeek + w;
-      await sql`DELETE FROM schedule WHERE week = ${week}`;
+      await sql`DELETE FROM schedule WHERE season = ${season} AND week = ${week}`;
       const pairs = weekly[w];
       for (let i = 0; i < pairs.length; i++) {
-        await sql`INSERT INTO schedule (week, pair_index, team_a, team_b) VALUES (${week}, ${i}, ${pairs[i].teamA}, ${pairs[i].teamB})`;
+        await sql`INSERT INTO schedule (season, week, pair_index, team_a, team_b) VALUES (${season}, ${week}, ${i}, ${pairs[i].teamA}, ${pairs[i].teamB})`;
       }
     }
   }

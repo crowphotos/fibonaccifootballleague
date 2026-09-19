@@ -1,3 +1,5 @@
+import { ensureSchema } from './db.js';
+import { getSeason } from '../lib/season.js';
 // api/map-teams.js
 import { sql } from '@vercel/postgres';
 import { requireAdmin } from './auth.js';
@@ -38,7 +40,9 @@ async function handler(req, res) {
   try { requireAdmin(req, res); } catch (e) { return res.status(e.statusCode || 401).send(e.message); }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const season = Number(url.searchParams.get('season')) || Number(process.env.ESPN_SEASON) || new Date().getFullYear();
+  const season = getSeason(url, res);
+  if (season === null) return;
+  await ensureSchema();
   const leagueId = Number(process.env.ESPN_LEAGUE_ID || 708357460);
 
   const endpoints = [
@@ -72,7 +76,7 @@ async function handler(req, res) {
     name: (t.location && t.nickname) ? `${t.location} ${t.nickname}` : (t.name || `Team ${t.id}`)
   }));
 
-  const dbTeams = (await sql`SELECT id, name, espn_id AS "espnId" FROM teams ORDER BY id ASC`).rows;
+  const dbTeams = (await sql`SELECT id, name, espn_id AS "espnId" FROM teams WHERE season = ${season} ORDER BY id ASC`).rows;
 
   const espnByNorm = new Map(espnTeams.map(t => [norm(t.name), t]));
   const updates = [];
@@ -91,7 +95,7 @@ async function handler(req, res) {
   }
 
   for (const u of updates) {
-    await sql`UPDATE teams SET espn_id = ${u.to} WHERE id = ${u.id}`;
+    await sql`UPDATE teams SET espn_id = ${u.to} WHERE season = ${season} AND id = ${u.id}`;
   }
 
   res.status(200).json({ season, leagueId, updated: updates.length, updates, unmapped: misses, espnTeams });

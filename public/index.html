@@ -12,10 +12,11 @@
     </header>
 
     <main>
+      <div class="card"><label for="seasonSelect">Season</label> <select id="seasonSelect"><option value="2026">2026</option><option value="2025">2025</option></select></div>
       <!-- Standings -->
       <div class="card">
         <div class="standings-header">
-          <h2>League Standings 2025</h2>
+          <h2 id="standingsTitle">League Standings</h2>
           <div>
             <span id="weekBadge" class="badge" aria-live="polite"
               >Loading…</span
@@ -171,7 +172,18 @@
     </script>
 
     <script>
+      const requestedSeason = new URL(window.location.href).searchParams.get('season');
+      const SEASON = requestedSeason === '2025' ? 2025 : 2026;
+      document.getElementById('seasonSelect').value = String(SEASON);
+      document.getElementById('seasonSelect').addEventListener('change', event => {
+        const url = new URL(window.location.href);
+        url.searchParams.set('season', event.target.value);
+        window.location.assign(url.href);
+      });
+
       const API_BASE = window.__FFL_API_BASE__ || "";
+
+      document.getElementById('standingsTitle').textContent = 'League Standings ' + SEASON;
 
       function fmt2(n) {
         return Number(n ?? 0).toFixed(2);
@@ -220,7 +232,7 @@
 
         let res;
         try {
-          res = await fetch(API_BASE + "/api/standings", {
+          res = await fetch(API_BASE + "/api/standings?season=" + SEASON, {
             headers: { Accept: "application/json" },
           });
         } catch {
@@ -304,7 +316,7 @@
 
         let res;
         try {
-          res = await fetch(`${API_BASE}/api/week?week=${week}`);
+          res = await fetch(`${API_BASE}/api/week?season=${SEASON}&week=${week}`);
         } catch {
           showAlert("weekAlert", "Network error loading weekly results.");
           tbody.innerHTML = `<tr><td colspan="6" class="muted">Unable to load results.</td></tr>`;

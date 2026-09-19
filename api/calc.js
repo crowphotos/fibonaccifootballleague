@@ -1,3 +1,4 @@
+import { getSeason } from '../lib/season.js';
 // api/calc.js
 import { sql } from '@vercel/postgres';
 import { ensureSchema } from './db.js';
@@ -12,17 +13,19 @@ async function handler(req, res) {
   try { requireAdmin(req, res); } catch (e) { return res.status(e.statusCode || 401).send(e.message); }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const season = getSeason(url, res);
+  if (season === null) return;
   const week = Number(url.searchParams.get('week'));
 
   const pairs = (await sql`
     SELECT pair_index, team_a, team_b
-    FROM schedule WHERE week = ${week}
+    FROM schedule WHERE season = ${season} AND week = ${week}
     ORDER BY pair_index ASC
   `).rows;
   if (pairs.length === 0) return res.status(400).json({ error: 'No schedule for this week' });
 
   const scoresRows = (await sql`
-    SELECT team_id, score FROM scores WHERE week = ${week}
+    SELECT team_id, score FROM scores WHERE season = ${season} AND week = ${week}
   `).rows;
   const scores = new Map(scoresRows.map(r => [r.team_id, r.score]));
 
@@ -45,11 +48,11 @@ async function handler(req, res) {
     i = j;
   }
 
-  await sql`DELETE FROM awards WHERE week = ${week}`;
+  await sql`DELETE FROM awards WHERE season = ${season} AND week = ${week}`;
   for (const p of pairs) {
     const pts = awards.get(p.pair_index) ?? 0;
-    await sql`INSERT INTO awards (week, team_id, points) VALUES (${week}, ${p.team_a}, ${pts})`;
-    await sql`INSERT INTO awards (week, team_id, points) VALUES (${week}, ${p.team_b}, ${pts})`;
+    await sql`INSERT INTO awards (season, week, team_id, points) VALUES (${season}, ${week}, ${p.team_a}, ${pts})`;
+    await sql`INSERT INTO awards (season, week, team_id, points) VALUES (${season}, ${week}, ${p.team_b}, ${pts})`;
   }
 
   res.status(200).json({ ok: true });

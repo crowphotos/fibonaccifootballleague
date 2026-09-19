@@ -1,3 +1,4 @@
+import { getSeason } from '../lib/season.js';
 // api/schedule.js
 import { sql } from '@vercel/postgres';
 import { ensureSchema } from './db.js';
@@ -32,12 +33,14 @@ function doubleRoundRobin(ids) {
 async function handler(req, res) {
   await ensureSchema();
   const url = new URL(req.url, `http://${req.headers.host}`);
+  const season = getSeason(url, res);
+  if (season === null) return;
 
   if (req.method === 'GET') {
     const week = Number(url.searchParams.get('week'));
     const r = await sql`
       SELECT pair_index AS "pairIndex", team_a AS "teamA", team_b AS "teamB"
-      FROM schedule WHERE week = ${week}
+      FROM schedule WHERE season = ${season} AND week = ${week}
       ORDER BY pair_index ASC
     `;
     return res.status(200).json(r.rows);
@@ -48,11 +51,11 @@ async function handler(req, res) {
     const week = Number(url.searchParams.get('week'));
     const pairs = Array.isArray(req.body) ? req.body : [];
 
-    await sql`DELETE FROM schedule WHERE week = ${week}`;
+    await sql`DELETE FROM schedule WHERE season = ${season} AND week = ${week}`;
     for (let i = 0; i < pairs.length; i++) {
       const { teamA, teamB } = pairs[i];
       if (teamA === teamB) return res.status(400).json({ error: 'Pair teams must be different' });
-      await sql`INSERT INTO schedule (week, pair_index, team_a, team_b) VALUES (${week}, ${i}, ${teamA}, ${teamB})`;
+      await sql`INSERT INTO schedule (season, week, pair_index, team_a, team_b) VALUES (${season}, ${week}, ${i}, ${teamA}, ${teamB})`;
     }
     return res.status(200).json({ ok: true, saved: pairs.length });
   }
@@ -62,7 +65,7 @@ async function handler(req, res) {
     const generate = url.searchParams.get('generate');
     if (!generate) return res.status(400).json({ error: 'missing ?generate=1' });
 
-    const teams = await sql`SELECT id FROM teams ORDER BY id ASC`;
+    const teams = await sql`SELECT id FROM teams WHERE season = ${season} ORDER BY id ASC`;
     if (teams.rows.length !== 10) return res.status(400).json({ error: 'Exactly 10 teams required' });
 
     const ids = teams.rows.map(r => r.id);
@@ -70,10 +73,10 @@ async function handler(req, res) {
 
     // sequential deletes/inserts (no transaction)
     for (let w = 0; w < sched.length; w++) {
-      await sql`DELETE FROM schedule WHERE week = ${w}`;
+      await sql`DELETE FROM schedule WHERE season = ${season} AND week = ${w}`;
       const pairs = sched[w];
       for (let i = 0; i < pairs.length; i++) {
-        await sql`INSERT INTO schedule (week, pair_index, team_a, team_b) VALUES (${w}, ${i}, ${pairs[i].a}, ${pairs[i].b})`;
+        await sql`INSERT INTO schedule (season, week, pair_index, team_a, team_b) VALUES (${season}, ${w}, ${i}, ${pairs[i].a}, ${pairs[i].b})`;
       }
     }
     return res.status(200).json({ ok: true, weeks: sched.length });

@@ -11,6 +11,7 @@
   <h1>FFL Admin</h1>
 </header>
 <main>
+  <div class="card"><label for="seasonSelect">Season</label> <select id="seasonSelect"><option value="2026">2026</option><option value="2025">2025</option></select></div>
   <!-- Login -->
   <div class="card">
     <h2>Login</h2>
@@ -158,8 +159,18 @@ document.getElementById('login').addEventListener('click', ()=>{
   alert('Credentials saved in this browser.');
 });
 
+const requestedSeason = new URL(window.location.href).searchParams.get('season');
+const SEASON = requestedSeason === '2025' ? 2025 : 2026;
+document.getElementById('seasonSelect').value = String(SEASON);
+document.getElementById('seasonSelect').addEventListener('change', event => {
+  const url = new URL(window.location.href);
+  url.searchParams.set('season', event.target.value);
+  window.location.assign(url.href);
+});
+
 const API_BASE = window.__FFL_API_BASE__ || '';
 async function api(path, opts){
+  path += (path.includes('?') ? '&' : '?') + 'season=' + SEASON;
   const res = await fetch(API_BASE + path, Object.assign({
     headers: Object.assign({ 'Content-Type': 'application/json' }, getAuthHeader())
   }, opts));
@@ -284,7 +295,7 @@ document.getElementById('saveWeekBtn').addEventListener('click', async ()=>{
   alert('Saved schedule for week '+(week+1));
 });
 document.getElementById('genBtn').addEventListener('click', async ()=>{
-  if(!confirm('Generate double round-robin schedule for all 18 weeks (overwrites existing)?')) return;
+  if(!confirm(`Generate all 18 weeks for ${SEASON} (overwrites this season’s schedule)?`)) return;
   await api('/api/schedule?generate=1', { method:'POST' });
   alert('Schedule generated.');
 });
@@ -363,30 +374,40 @@ document.getElementById('calcBtn').addEventListener('click', async ()=>{
 
 // ESPN weekly fetch autofill (scores)
 document.getElementById('fetchEspnBtn').addEventListener('click', async ()=>{
-  const zeroBasedWeek = Number(document.getElementById('scoreWeek').value); // 0..17 in our UI
-  const espnWeek = zeroBasedWeek + 1; // ESPN uses 1..18
-  const resp = await api('/api/espn?map=1&week='+espnWeek, { method: 'GET' });
-  const teams = _teamsCache.length ? _teamsCache : await api('/api/teams', { method:'GET' });
-
-  if (Array.isArray(resp.mapped) && resp.mapped.length) {
-    resp.mapped.forEach(m => {
+  const button = document.getElementById('fetchEspnBtn');
+  const zeroBasedWeek = Number(document.getElementById('scoreWeek').value);
+  if (!Number.isInteger(zeroBasedWeek) || zeroBasedWeek < 0 || zeroBasedWeek > 17) {
+    return alert('Choose a week from 0 through 17.');
+  }
+  const espnWeek = zeroBasedWeek + 1;
+  button.disabled = true;
+  button.textContent = 'Fetching…';
+  try {
+    const resp = await api('/api/espn?map=1&week='+espnWeek, { method: 'GET' });
+    if (resp.ok !== true) throw new Error(resp.error || 'ESPN did not return scores.');
+    if (Number(document.getElementById('scoreWeek').value) !== zeroBasedWeek) {
+      throw new Error('The selected week changed. Fetch again for the new week.');
+    }
+    const mapped = resp.mapped || [];
+    let filled = 0;
+    mapped.forEach(m => {
       const inp = document.getElementById('score-'+m.teamId);
-      if (inp) inp.value = Number(m.points).toFixed(2);
-    });
-  } else {
-    const byEspn = new Map((resp.scores||[]).map(s => [String(s.espnTeamId), Number(s.points)]));
-    teams.forEach(t=>{
-      const pts = byEspn.get(String(t.espnId));
-      if (pts != null) {
-        const inp = document.getElementById('score-'+t.id);
-        if (inp) inp.value = Number(pts).toFixed(2);
+      if (inp && m.points != null && Number.isFinite(Number(m.points))) {
+        inp.value = Number(m.points).toFixed(2);
+        filled++;
       }
     });
+    if (!filled) throw new Error('No scores matched your teams. Assign the correct ESPN IDs in ESPN Mapping, then try again.');
+    const missing = resp.missing?.length
+      ? ' Unmatched ESPN IDs: ' + resp.missing.map(x => x.espnTeamId).join(', ') + '. Check ESPN Mapping.'
+      : '';
+    alert(`Fetched ${filled} team scores for ESPN week ${espnWeek}.${missing} Review and press "Save Scores".`);
+  } catch (error) {
+    alert('Could not fetch ESPN scores: ' + error.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Fetch from ESPN';
   }
-  if (Array.isArray(resp.missing) && resp.missing.length) {
-    alert('Some ESPN teams did not match your Teams list (check ESPN Team IDs 0-9). Missing: ' + resp.missing.map(x=>x.espnTeamId).join(', '));
-  }
-  alert(`Fetched ESPN week ${espnWeek} scores. Review and press "Save Scores".`);
 });
 
 // ----------------- ESPN Mapping -----------------
