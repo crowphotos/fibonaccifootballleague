@@ -9,6 +9,7 @@
 <body>
 <header>
   <h1>FFL Admin</h1>
+  <a class="btn secondary" id="mainPageLink" href="/">Back to Main Page</a>
 </header>
 <main>
   <div class="card"><label for="seasonSelect">Season</label> <select id="seasonSelect"><option value="2026">2026</option><option value="2025">2025</option></select></div>
@@ -161,6 +162,7 @@ document.getElementById('login').addEventListener('click', ()=>{
 
 const requestedSeason = new URL(window.location.href).searchParams.get('season');
 const SEASON = requestedSeason === '2025' ? 2025 : 2026;
+document.getElementById('mainPageLink').href = '/?season=' + SEASON;
 document.getElementById('seasonSelect').value = String(SEASON);
 document.getElementById('seasonSelect').addEventListener('change', event => {
   const url = new URL(window.location.href);
@@ -472,4 +474,3 @@ loadEspnTeams();
 </script>
 </body>
 </html>
-
